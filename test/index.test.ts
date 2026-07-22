@@ -42,6 +42,7 @@ function stubContext(): types.IExtensionContext {
     registerInstaller: vi.fn(),
     registerToolVariables: vi.fn(),
     registerStartHook: vi.fn(),
+    registerAction: vi.fn(),
     once: vi.fn((cb: () => void | PromiseLike<void>) => {
       // Invoke synchronously so the test can assert the handlers were
       // registered. The real Vortex runtime defers this callback until
@@ -102,6 +103,22 @@ describe('extension entry', () => {
     expect(args[0]).toBe(START_HOOK_PRIORITY);
     expect(args[1]).toBe(START_HOOK_ID);
     expect(typeof args[2]).toBe('function');
+  });
+
+  it('registers the two user-facing open-directory actions via registerAction', () => {
+    // The Open Relay log directory and Open Darktide console-log
+    // directory actions both ride through registerAction (spec Section
+    // 13). Open Mod Folder and Launch modded are Vortex built-ins and
+    // are NOT registered here.
+    const ctx = stubContext();
+    main(ctx);
+    expect(ctx.registerAction).toHaveBeenCalledTimes(2);
+    for (const call of vi.mocked(ctx.registerAction).mock.calls) {
+      expect(typeof call[2]).toBe('string'); // icon name
+      expect(typeof call[4]).toBe('string'); // title
+      expect(typeof call[5]).toBe('function'); // handler
+      expect(typeof call[6]).toBe('function'); // condition
+    }
   });
 
   it('registers the Darktide game with the Relay supported tool attached', () => {

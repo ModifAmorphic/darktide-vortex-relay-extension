@@ -1,5 +1,6 @@
 import type { types } from '@nexusmods/vortex-api';
 
+import { registerActions } from './actions';
 import { game } from './game';
 import { createInstaller } from './installer';
 import { projectActiveProfileModsLst } from './modsLst';
@@ -16,7 +17,9 @@ import { createToolVariablesCallback } from './toolVariables';
  * - Darktide game registration (PR #3). The game registration's
  *   `supportedTools` array carries the Mod Relay tool (spec Section
  *   11); Vortex 2.3 has no separate `registerTool` method, so the tool
- *   rides along with the game registration.
+ *   rides along with the game registration. The game registration also
+ *   defines `getModPaths`, which enables Vortex's built-in "Open Mod
+ *   Folder" dashboard action (spec Section 13).
  * - The `.mod` archive installer (PR #4), which auto-emits an `after DMF`
  *   dependency rule for every non-DMF mod.
  * - Tool variables (`RELAY_GAME_BINARY`, `RELAY_MOD_PATH`) resolved at
@@ -25,6 +28,11 @@ import { createToolVariablesCallback } from './toolVariables';
  *   directory.
  * - The launch-guard start hook, which validates state and regenerates
  *   `mods.lst` immediately before Relay launches (spec Section 12).
+ * - Two user-facing open-directory actions (spec Section 13): Open
+ *   Relay log directory and Open Darktide console-log directory. The
+ *   "Launch modded" and "Open Mod Folder" capabilities are Vortex
+ *   built-ins (primary-tool launch and `getModPaths`) and are NOT
+ *   registered separately here.
  * - The two non-Relay `mods.lst` projection call sites (`did-deploy` and
  *   `profile-did-change`); the Relay start hook is the third call site.
  *
@@ -58,6 +66,7 @@ import { createToolVariablesCallback } from './toolVariables';
  *   (api.d.ts line 3889).
  * - `context.registerStartHook: (priority, id, hook) => void`
  *   (api.d.ts line 3805).
+ * - `context.registerAction: RegisterAction` (api.d.ts line 3499).
  *
  * @param context the Vortex extension context supplied at load time.
  * @returns `true` once initialization has completed successfully.
@@ -75,6 +84,8 @@ function main(context: types.IExtensionContext): boolean {
 
   context.registerToolVariables(createToolVariablesCallback(context.api));
   context.registerStartHook(START_HOOK_PRIORITY, START_HOOK_ID, createStartHook(context.api));
+
+  registerActions(context);
 
   // Long-lived event handlers register inside `context.once` so all
   // extensions are initialized first. Both handlers project mods.lst

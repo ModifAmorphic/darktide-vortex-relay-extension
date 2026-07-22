@@ -109,7 +109,7 @@ as a Relay requirement or a Relay-owned root.
 
 - **`main`** -- documentation seed plus the production toolchain foundation
   (TypeScript, Rolldown, Vitest, ESLint, Prettier, GitHub Actions CI) and
-  the extension capabilities through step 6: Darktide game registration
+  the extension capabilities through step 7: Darktide game registration
   with `setup`, `queryModPath`, and a `dev:install` script for live
   iteration; the `.mod` archive installer that recognizes Darktide mods,
   normalizes them into the canonical `<name>/<name>.mod` layout, persists
@@ -117,20 +117,28 @@ as a Relay requirement or a Relay-owned root.
   for non-DMF mods, and rejects ambiguous or unsafe archives; the pure
   `mods.lst` projection helpers and the `projectActiveProfileModsLst`
   orchestrator (which calls Vortex's built-in `util.sortMods`) wired
-  into `did-deploy` and `profile-did-change` event handlers; and the
+  into `did-deploy` and `profile-did-change` event handlers; the
   Relay supported tool (`IGame.supportedTools`), the
   `registerToolVariables` callback that resolves `RELAY_GAME_BINARY`
   and `RELAY_MOD_PATH` at launch, and the `registerStartHook`
   launch guard that validates state, regenerates `mods.lst`, and emits
-  a once-per-install DMF warning. The entry at `src/index.ts` registers
-  the game and the installer, the tool variables, and the start hook.
-  The extension does NOT register a custom load-order page; it relies
-  on Vortex's native mod sort. Vortex deploys each mod tree to
-  `<deployDir>/mods/<name>/` (the Mod Relay layout: `--mod-path` points
-  at `<deployDir>`, and the launcher expects `<deployDir>/mods/` to
-  contain the mod folders and `mods.lst`). The bundled Relay runtime is
-  gitignored and the bundling script (`scripts/bundle-relay.ts`) has not
-  landed yet; operators populate `relay/` manually until then.
+  a once-per-install DMF warning; and two user-facing open-directory
+  actions registered on the `game-managed-buttons` group (Open Relay
+  log directory, Open Darktide console-log directory). "Launch modded
+  with Mod Relay" is Vortex's built-in primary-tool launch (the Relay
+  tool carries `defaultPrimary: true`), and "Open Relay mod directory"
+  is Vortex's built-in "Open Mod Folder" action, which works because
+  the game registration now defines `getModPaths` returning
+  `modsContentDir` for the default mod type. The entry at `src/index.ts`
+  registers the game, the installer, the tool variables, the start
+  hook, and the two open-directory actions. The extension does NOT
+  register a custom load-order page; it relies on Vortex's native
+  mod sort. Vortex deploys each mod tree to `<deployDir>/mods/<name>/`
+  (the Mod Relay layout: `--mod-path` points at `<deployDir>`, and the
+  launcher expects `<deployDir>/mods/` to contain the mod folders and
+  `mods.lst`). The bundled Relay runtime is gitignored and the
+  bundling script (`scripts/bundle-relay.ts`) has not landed yet;
+  operators populate `relay/` manually until then.
 - Development is branch + PR. No unreviewed merges to `main`; changes should be
   reviewed, covered where executable behavior exists, QA'd, and CI-green.
 
@@ -150,7 +158,9 @@ own PR.
 - [x] Step 5: Auto DMF dependency rules and sortMods-based mods.lst projection
   (PR #7)
 - [x] Step 6: Relay tool, tool variables, and start hook (PR #8)
-- [ ] Step 7: User-facing actions
+- [x] Step 7: User-facing actions (pending operator Vortex render
+  verification; PR to be opened by the operator after the actions are
+  confirmed to render on the Darktide dashboard tile)
 - [ ] Step 8: Bundle Relay and package release archive
 - [ ] Step 9: Integration matrix on a clean Windows machine
 - [ ] Step 10: Documentation polish and release
@@ -200,16 +210,19 @@ src/
   index.ts
     Entry; default-exports main(context). Registers the Darktide game and
     the `.mod` archive installer; registers the Relay tool variables
-    callback and the launch-guard start hook; registers did-deploy and
-    profile-did-change handlers inside context.once that project mods.lst.
-    The Relay tool itself is registered via the Darktide game's
-    supportedTools array, not a separate registerTool call.
+    callback and the launch-guard start hook; registers the two
+    user-facing open-directory actions via registerActions; registers
+    did-deploy and profile-did-change handlers inside context.once that
+    project mods.lst. The Relay tool itself is registered via the
+    Darktide game's supportedTools array, not a separate registerTool
+    call.
   constants.ts
     Game ID, Nexus domain, Steam app ID, required files, mod attribute
     name, DMF canonical name, DMF Nexus mod id, mod-directory layout
     subdirectory names, Relay tool id/name/executable, Relay
     quick-discovery and full required-files lists, the seven mod_loader
-    Lua file names, and the DMF warning flag file name/version.
+    Lua file names, the DMF warning flag file name/version, and the
+    Darktide console-log directory path segments.
   paths.ts
     Pure path helpers (modRoot, deployDir, modsContentDir, loadOrderDir)
     under Vortex userData, plus relayDir() which resolves the bundled
@@ -222,8 +235,10 @@ src/
     The IGame registration object and setupDiscoveredGame callback. The
     game's supportedTools array carries the Relay tool. queryModPath
     returns modsContentDir so each mod deploys to
-    <deployDir>/mods/<name>/; setup creates deployDir, modsContentDir,
-    and loadOrderDir.
+    <deployDir>/mods/<name>/; getModPaths[''] returns the same
+    modsContentDir so Vortex's built-in Open Mod Folder action opens
+    the right directory; setup creates deployDir, modsContentDir, and
+    loadOrderDir.
   installer.ts
     The Darktide `.mod` archive installer: testSupported, planInstall
     (pure core), and a createInstaller(api) factory that closes over the
@@ -263,6 +278,19 @@ src/
     missingRelayFiles, validateDeployedModsLstEntries, decideDmfWarning,
     readDmfWarningFlag, persistDmfWarningFlag) are exported for unit
     testing.
+  actions.ts
+    User-facing open-directory actions (spec Section 13).
+    registerActions(context) registers two actions on the
+    `game-managed-buttons` group so they render on the Darktide
+    dashboard tile: Open Relay log directory (opens paths.relayDir(),
+    where relay.log lives beside the launcher) and Open Darktide
+    console-log directory (opens %APPDATA%\Fatshark\Darktide\console_logs\
+    when it exists, or surfaces an explanatory notification when
+    Darktide has not generated logs yet). "Launch modded" and "Open
+    Mod Folder" are Vortex built-ins (primary-tool launch and
+    getModPaths) and are NOT registered here. Pure helpers
+    (resolveConsoleLogsDir, dirExistsSync) and the ACTION_GROUP
+    constant are exported for unit testing.
   util/
     names.ts
       Pure safe-name validation: isSafeCanonicalName, findDuplicateNames.
@@ -294,10 +322,12 @@ test/
     Unit tests for the path helpers exercising Windows path composition
     (modRoot, deployDir, modsContentDir, loadOrderDir).
   game.test.ts
-    Unit tests for the game object and setup callback (mocked Vortex API).
+    Unit tests for the game object and setup callback (mocked Vortex API),
+    including queryModPath and getModPaths both returning modsContentDir.
   index.test.ts
     Unit tests for the entry's registerGame and registerInstaller wiring,
-    the registerToolVariables and registerStartHook wiring, and the
+    the registerToolVariables and registerStartHook wiring, the
+    registerAction wiring for the two open-directory actions, and the
     did-deploy / profile-did-change handler registration.
   installer.test.ts
     Unit tests for testSupported, the pure planInstall core (every
@@ -335,6 +365,18 @@ test/
     pass and fail path; the DMF soft warning's pure decision, flag-file
     read/write/parse, and fire-once hook wiring; rejection mechanism
     (ProcessCanceled with distinct per-check messages).
+  actions.test.ts
+    Unit tests for the user-facing actions: ACTION_GROUP constant;
+    resolveConsoleLogsDir (provided APPDATA, undefined APPDATA, empty
+    APPDATA joined as relative); dirExistsSync (present directory,
+    missing path, file passthrough); registerActions wiring (two
+    actions on game-managed-buttons with open-ext icon, position
+    200/210, spec titles, handler + condition passed); condition
+    gating on instanceIds[0] === GAME_ID (strict boolean); each
+    handler's util.opn call with the expected path, rejection routed
+    through showErrorNotification; the console-log handler's
+    missing-directory branch (no util.opn call, explanatory
+    notification instead).
   util/
     names.test.ts
       Unit tests for safe-name validation covering every rule.
@@ -349,7 +391,7 @@ test/
     vortex-api.ts
       Runtime stub for the types-only @nexusmods/vortex-api package so
       Vitest can resolve value imports (util, fs, selectors); per-test
-      vi.mock overrides it. Provides default no-op sortMods,
+      vi.mock overrides it. Provides default no-op sortMods, opn,
       activeProfile, discoveryByGame, and ProcessCanceled stubs.
 docs/
   architecture/

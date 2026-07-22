@@ -29,6 +29,14 @@ export const util = {
   // ...)`. Kept here so modules that value-import `util` load even when
   // the test does not replace it.
   sortMods: async <T>(_gameId: string, mods: T[], _api: unknown): Promise<T[]> => mods,
+  // Default open-directory stub: resolves immediately. Tests that assert
+  // on `util.opn` override it via `vi.mock('@nexusmods/vortex-api',
+  // ...)`. Kept here so action handlers loaded as part of module init
+  // (registerActions) do not trigger unhandled rejections in unrelated
+  // tests.
+  opn: async (_target: string): Promise<void> => {
+    // intentionally empty; tests override via vi.mock when asserting.
+  },
   CycleError: class CycleError extends Error {
     constructor(public cycles: string[][]) {
       super('cycle');
