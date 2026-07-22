@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - CHANGELOG.md
+      - .release-please-manifest.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    name: prettier auto-format
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Auto-format and commit (same-repo PR)
+        if: github.event.pull_request.head.repo.fork == false
+        shell: bash
+        run: |
+          pnpm format
+          git config user.name  github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git diff --quiet || { git add -u; git commit -m "style: prettier [skip ci]"; git push; }
+
+      - name: Verify formatting (fork PR or dispatch)
+        if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.fork == true
+        run: pnpm format:check
+
+  build:
+    name: install, typecheck, lint, test, build
+    runs-on: windows-latest
+    needs: [format]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Upload built extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/index.js
+          if-no-files-found: error

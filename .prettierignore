@@ -1,0 +1,17 @@
+# Build output and dependencies
+dist/
+node_modules/
+relay/
+coverage/
+
+# Machine-generated lockfile
+pnpm-lock.yaml
+
+# Logs
+*.log
+
+# Hand-formatted prose. AGENTS.md, README.md, and the docs/ tree use deliberate
+# line wrapping, table alignment, and list spacing that Prettier would rewrite
+# into noisy diff churn without improving readability. Markdown is intentionally
+# excluded from format enforcement; format these by hand.
+*.md

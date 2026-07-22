@@ -1,0 +1,7 @@
+# pnpm 11 reads project settings from pnpm-workspace.yaml (only auth/registry
+# settings still come from .npmrc). This file holds the build-script allowlist.
+# core-js@2.6.12 is pulled in transitively by @nexusmods/vortex-api's type
+# information; its postinstall only prints an OpenCollective banner, so we
+# explicitly opt it out instead of running it.
+allowBuilds:
+  core-js: false

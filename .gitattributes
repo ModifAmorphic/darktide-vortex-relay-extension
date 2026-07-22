@@ -1,0 +1,4 @@
+# Enforce CRLF line endings on checkout. This is a Windows-only project;
+# source files use Windows line endings to match the production platform.
+# Prettier's endOfLine: "crlf" enforces the same on format.
+* text=auto eol=crlf
