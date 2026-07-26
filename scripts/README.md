@@ -412,8 +412,8 @@ E. Vortex's built-in "Open Mod Folder" opens the deployed-mods
    - This is a Vortex built-in action that previously did nothing for
      Darktide; it now works because the game registration defines
      `getModPaths` returning `modsContentDir`.
-   - Click the built-in Open Mod Folder action on the Darktide
-     dashboard tile.
+   - Click Open Game Mods Folder in the active-game dashboard
+     toolbar's Open menu.
    - Expected: Explorer opens
      `%APPDATA%\Vortex\warhammer40kdarktide-relay\deploy\mods\`, which
      is where Vortex deploys each mod tree (`<name>\<name>.mod` and
