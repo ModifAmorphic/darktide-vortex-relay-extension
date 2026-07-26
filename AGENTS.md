@@ -160,7 +160,7 @@ own PR.
 - [x] Step 6: Relay tool, tool variables, and start hook (PR #8)
 - [x] Step 7: User-facing actions (pending operator Vortex render
   verification; PR to be opened by the operator after the actions are
-  confirmed to render on the Darktide dashboard tile)
+  confirmed to render on the Games tab Darktide tile)
 - [ ] Step 8: Bundle Relay and package release archive
 - [ ] Step 9: Integration matrix on a clean Windows machine
 - [ ] Step 10: Documentation polish and release
@@ -281,13 +281,18 @@ src/
   actions.ts
     User-facing open-directory actions (spec Section 13).
     registerActions(context) registers two actions on the
-    `game-managed-buttons` group so they render on the Darktide
-    dashboard tile: Open Relay log directory (opens paths.relayDir(),
-    where relay.log lives beside the launcher) and Open Darktide
-    console-log directory (opens %APPDATA%\Fatshark\Darktide\console_logs\
-    when it exists, or surfaces an explanatory notification when
-    Darktide has not generated logs yet). "Launch modded" and "Open
-    Mod Folder" are Vortex built-ins (primary-tool launch and
+    `game-managed-buttons` group so they render on the Games tab
+    Darktide tile, in the Open submenu behind the tile's vertical
+    "..." kebab button: Open Relay log directory (opens
+    paths.relayDir(), where relay.log lives beside the launcher) and
+    Open Darktide console-log directory (opens
+    %APPDATA%\Fatshark\Darktide\console_logs\ when it exists, or
+    surfaces an explanatory notification when Darktide has not
+    generated logs yet). The placement is secondary: once Darktide is
+    managed, users live on the active-game dashboard, whose toolbar is
+    a hardcoded Vortex component no registerAction group can extend,
+    so the custom actions are not reachable there. "Launch modded" and
+    "Open Mod Folder" are Vortex built-ins (primary-tool launch and
     getModPaths) and are NOT registered here. Pure helpers
     (resolveConsoleLogsDir, dirExistsSync) and the ACTION_GROUP
     constant are exported for unit testing.

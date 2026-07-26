@@ -349,13 +349,15 @@ F. No Darktide install directory writes.
 
 ### Step 7: User-facing open-directory actions
 
-Verifies the two custom dashboard actions plus the `getModPaths` change
-that enables Vortex's built-in "Open Mod Folder".
+Verifies the two custom open-directory actions plus the `getModPaths`
+change that enables Vortex's built-in "Open Mod Folder".
 
-Custom actions render on the Darktide dashboard tile on the
-`game-managed-buttons` group (the same group that carries Vortex's own
+Custom actions render on the Games tab Darktide tile, in the Open
+submenu behind the tile's vertical "..." kebab button (Games tab, then
+the Darktide tile, then "...", then Open). They register on the
+`game-managed-buttons` group, the same group that carries Vortex's own
 Open Game Folder, Open Mod Folder, Open Nexus Page, Manually Set
-Location, and Stop Managing actions). They are gated on the game id, so
+Location, and Stop Managing actions. They are gated on the game id, so
 they do not appear on other games' tiles.
 
 Setup:
@@ -364,8 +366,10 @@ Setup:
    Vortex.
 2. Manage Darktide if it is not already managed.
 
-A. Two custom actions appear on the Darktide dashboard tile.
+A. Two custom actions appear under the Games tab Darktide tile.
 
+   - On the Games tab, click the Darktide tile's vertical "..."
+     kebab button, then click Open.
    - "Open Relay log directory" sits alongside Vortex's built-in
      actions (position 200 in the group).
    - "Open Darktide console-log directory" sits next to it
@@ -417,7 +421,7 @@ E. Vortex's built-in "Open Mod Folder" opens the deployed-mods
 
 F. Actions do not render on other games' tiles.
 
-   - Switch to a different game's dashboard in Vortex.
+   - Switch to a different game's tile on the Games tab in Vortex.
    - Expected: the two custom actions do not appear. The condition
      `instanceIds[0] === GAME_ID` gates them to the Darktide tile
      only.
@@ -437,11 +441,11 @@ H. No Darktide install directory writes.
      `%APPDATA%\Fatshark\Darktide\console_logs\` (Darktide's own
      log directory, which the extension reads but does not create).
 
-If the two custom actions do not appear on the Darktide tile, the
-`ACTION_GROUP` constant in `src/actions.ts` is the one-line fix point:
-the value must be `game-managed-buttons` (the API types accept any
-string for the group parameter; only Vortex's renderer knows the valid
-values).
+If the two custom actions do not appear on the Games tab Darktide tile,
+the `ACTION_GROUP` constant in `src/actions.ts` is the one-line fix
+point: the value must be `game-managed-buttons` (the API types accept
+any string for the group parameter; only Vortex's renderer knows the
+valid values).
 
 ### Future steps
 

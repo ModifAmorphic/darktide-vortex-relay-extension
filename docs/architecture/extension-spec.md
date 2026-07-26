@@ -215,9 +215,11 @@ Capabilities registered in the entry function:
 - `context.registerInstaller(id, priority, testSupported, install)`.
 - `context.registerToolVariables(callback)`.
 - `context.registerStartHook(priority, id, hook)`.
-- `context.registerAction(...)` for each custom user-facing action. The
-  other dashboard actions are Vortex built-ins configured via the game and
-  tool registrations (Section 13).
+- `context.registerAction(...)` for each custom user-facing action; the
+  custom actions render on the Games tab Darktide tile (Section 13). The
+  remaining user-facing capabilities are Vortex built-ins configured via
+  the game and tool registrations, which Vortex surfaces on the
+  managed-game dashboard and on the Games tab tile.
 
 The extension does NOT call `context.registerLoadOrder`. Vortex's built-in
 mod sort and mod-details rule editor handle ordering (Section 9).
@@ -739,12 +741,17 @@ check produces a distinct message so the user can act on it.
 
 ## 13. User-facing actions
 
-Four user-facing capabilities are exposed on the Darktide dashboard tile. Two
-are Vortex built-ins, configured indirectly through the game and tool
-registrations rather than via `context.registerAction`; the other two are
-custom actions the extension registers on the `game-managed-buttons` action
-group so they render alongside Vortex's built-in Open Game Folder and Open
-Mod Folder actions.
+Four user-facing capabilities are exposed for Darktide. Two are Vortex
+built-ins, configured indirectly through the game and tool registrations
+rather than via `context.registerAction`; Vortex surfaces them on the
+managed-game dashboard toolbar (for daily use) and on the Games tab
+Darktide tile. The other two are custom actions the extension registers
+on the `game-managed-buttons` action group; they render only on the
+Games tab Darktide tile, in the Open submenu behind the tile's vertical
+"..." kebab button, alongside Vortex's built-in Open Game Folder and
+Open Mod Folder actions. They do not appear on the active-game dashboard,
+whose toolbar is a hardcoded Vortex component no `registerAction` group
+can extend.
 
 - **Launch modded with Mod Relay**: Vortex's built-in primary-tool launch.
   The Relay tool is registered with `defaultPrimary: true` (Section 11), so
