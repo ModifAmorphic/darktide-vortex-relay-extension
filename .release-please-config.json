@@ -1,6 +1,5 @@
 {
   "release-type": "simple",
-  "package-name": ".",
   "include-component-in-tag": false,
   "prerelease": true,
   "changelog-sections": [
@@ -30,5 +29,8 @@
   ],
   "changelog-path": "CHANGELOG.md",
   "bump-minor-pre-major": true,
-  "bump-patch-for-minor-pre-major": true
+  "bump-patch-for-minor-pre-major": true,
+  "packages": {
+    ".": {}
+  }
 }
