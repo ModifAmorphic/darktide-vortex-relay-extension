@@ -161,6 +161,14 @@ the shipped archive carries the release version. Add a `Release-As: X.Y.Z`
 footer to a merge commit only if you want to override the version
 release-please computed.
 
+The manifest bootstraps at `0.0.0`. release-please's default first release
+from `0.0.0` is `1.0.0` (the `bump-minor-pre-major` flag only governs bumps
+for versions already between `0.0.0` and `1.0.0`, not the initial release).
+The config pins the first release to `0.1.0` via `initial-version` in the
+`.` package, so the first release is `0.1.0` and subsequent releases stay
+pre-1.0 until deliberately bumped. Remove `initial-version` after the first
+release is cut (it is inert by then, but cleaning it avoids confusion).
+
 Releases are marked as pre-release until Mod Relay ships 1.0.0 stable
 (`prerelease: true` in `.release-please-config.json`). Flip that flag off
 when the extension is ready for a stable release.
