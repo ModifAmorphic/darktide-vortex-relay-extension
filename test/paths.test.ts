@@ -64,7 +64,7 @@ describe('paths', () => {
     it('returns an absolute path ending with the relay segment', () => {
       // relayDir resolves via __dirname, so the exact prefix depends on
       // where the test process loaded the module from. The final
-      // segment must be 'relay' (spec Section 11).
+      // segment must be 'relay' (design.md, Relay tool).
       const result = relayDir();
       const segments = result.split(/[\\/]/);
       expect(segments[segments.length - 1]).toBe('relay');

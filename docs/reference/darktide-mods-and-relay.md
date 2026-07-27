@@ -368,9 +368,11 @@ Every distributed Relay runtime bundle must include:
 If the extension archive embeds Relay, preserve those files beside the runtime
 artifacts. Do not reconstruct a partial runtime by copying only the EXE/DLL.
 
-Bundling also couples the extension release to an exact Relay version. The
-extension should be able to run `mod_relay.exe --version` for diagnostics
-and record the pinned version in release metadata.
+Bundling fixes the Relay runtime at extension build time: each build
+fetches the latest Relay release (pre-release inclusive) and ships it as
+an opaque unit. The extension is NOT version-pinned to a specific Relay
+release. Provenance for diagnostics is available via
+`mod_relay.exe --version`.
 
 ## 12. Responsibilities matrix
 
@@ -390,7 +392,7 @@ and record the pinned version in release metadata.
 | Dependency solving | Optional future policy | No |
 | Game-directory patching | Must not do | Does not do |
 
-## 13. Inputs still needed before specification
+## 13. Policy decisions left to the caller
 
 Relay leaves these policies to the extension:
 
@@ -403,8 +405,8 @@ Relay leaves these policies to the extension:
 6. whether any Darktide arguments are forwarded after Relay's `--`; and
 7. what archive layouts the first release promises to normalize.
 
-The extension spec should make these choices explicitly; none is hidden inside
-Relay.
+The architecture doc (`docs/architecture/design.md`) records the choices this
+extension made; none is hidden inside Relay.
 
 ## 14. Source index
 

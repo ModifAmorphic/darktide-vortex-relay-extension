@@ -53,7 +53,8 @@ Actions CI). The extension entry stub exists but registers no capabilities
 yet; there is no bundled Relay runtime or release workflow yet.
 
 The reference docs establish that the required Vortex and Relay integration
-surfaces exist. The architecture spec is the binding implementation design.
+surfaces exist. The architecture doc (`docs/architecture/design.md`) is the
+binding design.
 
 Production is built from the ground up with testability, review, and
 production-readiness as first-class goals. Do not copy or adapt another Darktide
@@ -64,7 +65,7 @@ Before planning implementation, read:
 
 - `docs/reference/vortex-extension-development.md`
 - `docs/reference/darktide-mods-and-relay.md`
-- `docs/architecture/extension-spec.md`
+- `docs/architecture/design.md`
 
 ## Product scope and boundaries
 
@@ -136,20 +137,25 @@ as a Relay requirement or a Relay-owned root.
   mod sort. Vortex deploys each mod tree to `<deployDir>/mods/<name>/`
   (the Mod Relay layout: `--mod-path` points at `<deployDir>`, and the
   launcher expects `<deployDir>/mods/` to contain the mod folders and
-  `mods.lst`). The bundled Relay runtime is gitignored and the
-  bundling script (`scripts/bundle-relay.ts`) has not landed yet;
-  operators populate `relay/` manually until then.
+  `mods.lst`). The bundled Relay runtime is gitignored.
+  `scripts/bundle-relay.ts` fetches the latest Relay release into `relay/`
+  (run `pnpm bundle:relay`), and `scripts/package.ts` assembles the
+  distributable archive (run `pnpm package`). The GitHub release workflow
+  (release-please config + release.yml on push to main, gated on
+  releases_created) runs these in CI to build and upload the archive to
+  the release.
 - Development is branch + PR. No unreviewed merges to `main`; changes should be
   reviewed, covered where executable behavior exists, QA'd, and CI-green.
 
 The `feat/load-order` branch on the remote is preserved as a reference for the
 abandoned `registerLoadOrder` design. Do not merge or delete it. The active
-design uses Vortex's built-in `util.sortMods` instead (spec Section 9, PR #7).
+design uses Vortex's built-in `util.sortMods` instead (design.md, Mod
+ordering; PR #7).
 
 ## Implementation progress
 
-Tracks which steps from spec Section 17 have landed. Each step ships in its
-own PR.
+Tracks which implementation steps have landed. Each step shipped in its own
+PR.
 
 - [x] Step 1: Toolchain scaffolding (PR #2)
 - [x] Step 2: Game registration (PR #3)
@@ -161,9 +167,10 @@ own PR.
 - [x] Step 7: User-facing actions (pending operator Vortex render
   verification; PR to be opened by the operator after the actions are
   confirmed to render on the Games tab Darktide tile)
-- [ ] Step 8: Bundle Relay and package release archive
-- [ ] Step 9: Integration matrix on a clean Windows machine
-- [ ] Step 10: Documentation polish and release
+- [x] Step 8: Bundle Relay and package release archive (the `bundle-relay.ts`
+  and `package.ts` scripts plus release-please config + release.yml that
+  run them in CI on push to main, gated on releases_created, and upload the
+  archive to the release).
 
 ## Directory structure (current `main`)
 
@@ -200,12 +207,22 @@ eslint.config.mjs
   Prettier enforcement (markdown is formatted by hand).
 .gitignore
   Ignores node_modules/, dist/, relay/, coverage/, OS junk, *.log.
+.release-please-config.json
+  Release-please configuration (simple release type, changelog path).
+.release-please-manifest.json
+  Bootstrap manifest for release-please, tracks current version.
+CHANGELOG.md
+  Auto-generated changelog maintained by release-please.
 .github/
   workflows/
     pr.yml
       GitHub Actions: install/typecheck/lint/test/build on pull request to
       `main`. The format job auto-formats same-repo PRs in place and verifies
       formatting on fork PRs and dispatch.
+    release.yml
+      GitHub Actions: release-please on push to main, gated on
+      releases_created, chains into build job that bundles Relay, packages the
+      extension archive, and uploads it to the release.
 src/
   index.ts
     Entry; default-exports main(context). Registers the Darktide game and
@@ -219,10 +236,10 @@ src/
   constants.ts
     Game ID, Nexus domain, Steam app ID, required files, mod attribute
     name, DMF canonical name, DMF Nexus mod id, mod-directory layout
-    subdirectory names, Relay tool id/name/executable, Relay
-    quick-discovery and full required-files lists, the seven mod_loader
-    Lua file names, the DMF warning flag file name/version, and the
-    Darktide console-log directory path segments.
+    subdirectory names, Relay tool id/name and the launcher executable
+    (the only Relay file the extension names; Relay's internal runtime
+    layout is not enumerated), the DMF warning flag file name/version,
+    and the Darktide console-log directory path segments.
   paths.ts
     Pure path helpers (modRoot, deployDir, modsContentDir, loadOrderDir)
     under Vortex userData, plus relayDir() which resolves the bundled
@@ -279,7 +296,7 @@ src/
     readDmfWarningFlag, persistDmfWarningFlag) are exported for unit
     testing.
   actions.ts
-    User-facing open-directory actions (spec Section 13).
+    User-facing open-directory actions (design.md, User-facing actions).
     registerActions(context) registers two actions on the
     `game-managed-buttons` group so they render on the Games tab
     Darktide tile, in the Open submenu behind the tile's vertical
@@ -318,6 +335,33 @@ scripts/
     iteration. Copies info.json, gameart.png, dist/index.js (renamed to
     index.js), and (when present) the repo-root relay/ runtime directory.
     Run via `pnpm dev:install --target <dir>`.
+  bundle-relay.ts
+    Fetches the latest Mod Relay release (pre-release inclusive) from the
+    GitHub releases API, downloads the `-windows-x64.zip` asset, and
+    extracts it verbatim into the repo-root relay/ directory. Defensively
+    sorts releases by published_at and selects the newest non-draft one;
+    selects the asset matching /^v\d+\.\d+\.\d+-windows-x64\.zip$/.
+    Verifies the one contract file (mod_relay.exe) at the target root
+    after extraction; no internal-file enumeration or legal-file check.
+    Optional GITHUB_TOKEN env raises the unauthenticated API rate limit.
+    Run via `pnpm bundle:relay` (`--out <dir>` overrides the target dir).
+    Pure helpers (selectLatestRelease, selectWindowsAsset) are exported
+    for unit testing.
+  package.ts
+    Assembles the distributable Vortex extension archive. Stages
+    info.json, gameart.png, dist/index.js (renamed index.js), and the
+    relay/ tree in a temp dir, zips it via PowerShell Compress-Archive
+    (the `-Path '<stage>/*'` wildcard form places entries at the archive
+    root with no wrapper directory), reads the zip's central directory
+    via [System.IO.Compression.ZipFile]::OpenRead to verify the root
+    layout (info.json, gameart.png, index.js, relay/mod_relay.exe), and
+    cleans the staging dir. Gates on dist/index.js and
+    relay/mod_relay.exe existing; runs `pnpm build` first unless
+    `--no-build`. Default output is
+    dist-package/darktide-relay-vortex-extension-<info-version>.zip
+    (`--out <path>` overrides). Run via `pnpm package`. Pure helpers
+    (readInfoVersion, composeArchivePath, assertArchiveRoot) are
+    exported for unit testing.
   README.md
     Operator-facing verification checklist. Run `pnpm dev:install`, then
     work through the per-step checks documented there. Grows as
@@ -349,10 +393,9 @@ test/
     rethrow).
   relayTool.test.ts
     Unit tests for the Relay ITool object (id/name/shortName, queryPath,
-    executable, requiredFiles subset, parameter tokens, no shell quoting,
-    no environment, defaultPrimary and exclusive flags) and the
-    Relay-related constants (RELAY_REQUIRED_FILES, RELAY_DISCOVERY_FILES,
-    MOD_LOADER_FILES, DMF_WARNING_FILE_NAME).
+    executable, requiredFiles = [mod_relay.exe], parameter tokens, no
+    shell quoting, no environment, defaultPrimary and exclusive flags)
+    and the DMF warning flag filename.
   toolVariables.test.ts
     Unit tests for createToolVariablesCallback (returns both
     RELAY_GAME_BINARY and RELAY_MOD_PATH, resolves the discovered
@@ -392,6 +435,22 @@ test/
       Unit tests for writeAtomic covering write, replace, tmp cleanup on
       success and on simulated rename failure, write-failure cleanup, and
       UTF-8-without-BOM encoding.
+  scripts/
+    bundle-relay.test.ts
+      Unit tests for selectLatestRelease (newest non-draft by
+      published_at, defensive sort not trusting API order, pre-releases
+      included, draft skipping, malformed-release filtering, asset
+      coercion, published_at tie-breaking) and selectWindowsAsset
+      (pattern match across versions, no-match and multi-match errors
+      naming available assets, rejection of malformed names).
+    package.test.ts
+      Unit tests for readInfoVersion (valid version, pre-release/build
+      metadata, bad-JSON/non-object/missing/empty/non-string rejections),
+      composeArchivePath (default filename, absolute out dir, pre-release
+      preservation), and assertArchiveRoot (required set present, missing
+      entries reported, wrapper-directory rejection, backslash and "./"
+      normalization, exact-path matching, directory-entry tolerance,
+      extra-entry tolerance).
   stubs/
     vortex-api.ts
       Runtime stub for the types-only @nexusmods/vortex-api package so
@@ -400,9 +459,10 @@ test/
       activeProfile, discoveryByGame, and ProcessCanceled stubs.
 docs/
   architecture/
-    extension-spec.md
-      Selected production design and component/lifecycle contracts for the
-      extension. Binding for implementation.
+    design.md
+      Selected production design and component/lifecycle contracts.
+  development.md
+      Human-facing developer guide: build, test, develop, package, release.
   reference/
     README.md
       Reference index, version baseline, and evidence labels.
@@ -412,6 +472,8 @@ docs/
       Darktide mod shape and Relay launcher/mod-directory contracts.
 dist/                     build output, gitignored
   index.js                produced by `pnpm build`
+dist-package/             release-archive output, gitignored
+  darktide-relay-vortex-extension-<version>.zip  produced by `pnpm package`
 ```
 
 When implementation directories, build tooling, tests, workflows, or release
@@ -550,10 +612,16 @@ supports `--version`, log flags, Steam app-ID override, and a bare `--`
 separator for forwarding later tokens to Darktide. Forwarded game arguments
 are not required for the basic integration.
 
-If the extension embeds Relay, pin an exact Relay release and preserve the
-runtime as a tested unit. Every distributed Relay bundle must include Relay's
-GPL-3.0 `LICENSE` and `THIRD_PARTY_NOTICES.md`; never copy only the EXE/DLL or
-reconstruct a partial bundle.
+The extension bundles the latest Relay release at build time (pre-release
+inclusive) and redistributes whatever Relay ships, verbatim. Relay is NOT
+version-pinned: each build of the extension fetches the newest non-draft
+release via `scripts/bundle-relay.ts`. The extension's only Relay contract is
+`mod_relay.exe`; it does NOT inspect, enumerate, or verify Relay's internal
+files (no DLL name check, no `mod_loader` Lua list, no legal-file check). Relay
+ships its own complete, legally-compliant runtime (GPL-3.0 `LICENSE` and
+`THIRD_PARTY_NOTICES.md` travel inside the release zip), and the extension
+preserves that bundle as a tested unit rather than copying only the EXE/DLL or
+reconstructing a partial bundle.
 
 Relay exits after injecting and resuming Darktide. Vortex process tracking after
 that handoff requires live validation.
@@ -562,8 +630,8 @@ that handoff requires live validation.
 
 ### Commands
 
-Repo-root commands. Run with Node 24 and pnpm 11.15+ (see Section 2 of the
-architecture spec for the version baseline and grounding date):
+Repo-root commands. Run with Node 24 and pnpm 11.15+ (see `docs/development.md`
+for the toolchain versions and grounding date):
 
 - `pnpm install` -- install dependencies (uses `pnpm-lock.yaml`).
 - `pnpm typecheck` -- type-check sources without emitting (`tsc --noEmit`).
@@ -575,26 +643,24 @@ architecture spec for the version baseline and grounding date):
 - `pnpm dev:install` -- build and copy artifacts into a Vortex plugins
   directory (requires `--target <dir>` or `VORTEX_PLUGINS_DIR`; see
   `scripts/README.md`).
+- `pnpm bundle:relay` -- fetch the latest Mod Relay release into `relay/`
+  (`scripts/bundle-relay.ts`). Optional `GITHUB_TOKEN` raises the API rate
+  limit; `--out <dir>` overrides the target directory.
+- `pnpm package` -- assemble the distributable extension archive into
+  `dist-package/` (`scripts/package.ts`). Runs `pnpm build` first unless
+  `--no-build`; `--out <path>` overrides the output archive path.
 - `pnpm clean` -- remove `dist/`.
 
 CI (`.github/workflows/pr.yml`) runs install, typecheck, lint, format, test,
 and build on pull request to `main`, and uploads `dist/index.js` as
-an artifact. Markdown (`*.md`) is excluded from Prettier enforcement via
-`.prettierignore`; format those files by hand. The auto-format job reforms
-same-repo PRs in place (committing as `github-actions[bot]` with `[skip ci]`)
-and verifies formatting on fork PRs and dispatch.
-
-### Expected future command categories
-
-Still to introduce in later implementation steps:
-
-- assembling the Vortex extension archive (scripts/package.ts); and
-- bundling the Relay runtime (scripts/bundle-relay.ts).
-
-The package manager, bundler, and test framework choices are settled
-(pnpm 11, Rolldown, Vitest); they do not auto-track Vortex's own tooling.
-
-A release workflow (`release.yml`) and release-please config files will land at Step 8.
+an artifact. The release workflow (`.github/workflows/release.yml`) runs on
+push to main, invokes release-please to cut release PRs and tags, and when
+a release is created, chains into a build job that bundles Relay, packages the
+extension archive, and uploads it to the release. Markdown (`*.md`) is excluded
+from Prettier enforcement via `.prettierignore`; format those files by hand.
+The auto-format job reforms same-repo PRs in place (committing as
+`github-actions[bot]` with `[skip ci]`) and verifies formatting on fork PRs
+and dispatch.
 
 ### Live integration environment
 
@@ -656,8 +722,10 @@ than one hand-authored happy path.
 
 ## Key docs
 
-- `docs/architecture/extension-spec.md` -- selected production design and
-  component/lifecycle contracts. Binding for implementation.
+- `docs/architecture/design.md` -- selected production design and
+  component/lifecycle contracts.
+- `docs/development.md` -- human-facing developer guide: build, test, develop,
+  package, release.
 - `docs/reference/README.md` -- reference baseline, evidence labels, and index.
 - `docs/reference/vortex-extension-development.md` -- Vortex package, API,
   discovery, installer, deployment, profile, load-order, tool, and test facts.
@@ -727,20 +795,41 @@ than one hand-authored happy path.
 
 ## Before opening a PR: keep docs current
 
-Docs must reflect the code in the PR. For changes affecting structure, build,
-architecture, contracts, packaging, or operations, update as applicable:
+Docs are part of the work, written while the code is written, not deferred
+to a polishing pass. A PR that ships code with stale docs is incomplete.
+
+For changes affecting structure, build, architecture, contracts, packaging,
+or operations, update as applicable:
 
 - **`AGENTS.md`** -- repository state, tree, commands, contracts, and ops.
 - **`README.md`** -- user-facing status, installation, and links.
-- **Component/source README** -- build, test, package, and developer workflow.
+- **`scripts/README.md`** (or component README) -- build, test, package, and
+  developer workflow.
 - **`docs/architecture/`** -- selected architecture or lifecycle changes.
 - **`docs/reference/`** -- external contract/API/version changes and their
   sources.
 
-Run every canonical format, lint, type-check, unit-test, build, package-layout,
-and applicable integration command before requesting review (see the Commands
-section). State explicitly when a change is docs-only and does not exercise
-the executable suite.
+Two consistency checks catch the stale-doc failure modes this repo has hit.
+Run them before requesting review:
+
+1. **Scan for stale references, not just the section you edited.** A change
+   that lands a command, a step, or a contract invalidates wording
+   elsewhere. After editing, search the repo for the subject of your change
+   and confirm every mention is consistent. If you added a command, no
+   "expected future commands" or "still to come" list may still name it. If
+   you landed an implementation step, the progress tracker and any
+   forward-looking sections must reflect it. If you changed a contract,
+   every doc that restates it must agree. Editing one section while leaving
+   a contradicting one elsewhere is a stale doc.
+2. **Cross-check sections that describe the same thing.** The
+   Implementation progress tracker, any "future" or "expected" sections, the
+   Commands list, the Directory structure tree, and the contract sections
+   must not contradict each other. If they do, one of them is stale.
+
+Run every canonical format, lint, type-check, unit-test, build,
+package-layout, and applicable integration command before requesting review
+(see the Commands section). State explicitly when a change is docs-only and
+does not exercise the executable suite.
 
 Outdated docs in a PR are a review blocker, including this file.
 

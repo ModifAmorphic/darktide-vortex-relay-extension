@@ -1,5 +1,5 @@
 /**
- * Launch guard for the Mod Relay tool (spec Section 12).
+ * Launch guard for the Mod Relay tool (design.md, Launch guard).
  *
  * Registered via `context.registerStartHook(priority, id, hook)`. Vortex
  * runs all start hooks before argument-variable expansion and process
@@ -12,11 +12,14 @@
  * runs the hard checks for Relay launches. Non-Relay launches return the
  * call unchanged so the hook does not affect unrelated tools.
  *
- * Hard checks (reject on failure, spec Section 12):
+ * Hard checks (reject on failure, design.md, Launch guard, Hard checks):
  *
  * 1. Active profile belongs to the Darktide game.
- * 2. Every required Relay runtime file exists in the bundled relay
- *    directory.
+ * 2. The bundled Relay launcher (`mod_relay.exe`) exists in the bundled
+ *    relay directory. The extension does not enumerate Relay's internal
+ *    runtime files (DLL, `mod_loader` Lua, legal files); that layout is
+ *    Relay's concern, and any further runtime failure is surfaced by
+ *    Relay at launch.
  * 3. The discovered Darktide binary exists on disk.
  * 4. `mods.lst` regeneration succeeds and the projected list validates
  *    (duplicates, separators, safe-name, deployed `.mod` files present).
@@ -86,7 +89,6 @@ import {
   GAME_ID,
   MOD_ATTRIBUTE_NAME,
   RELAY_EXECUTABLE,
-  RELAY_REQUIRED_FILES,
 } from './constants';
 import { isDmfFirst, projectAndValidateModsLst, validateProjectedNames } from './modsLst';
 import type { ProjectionResult } from './modsLst';
@@ -95,7 +97,7 @@ import { relayDir } from './paths';
 import { writeAtomic } from './util/fs';
 
 /**
- * Start-hook priority. The spec Section 12 registers at priority 5: a
+ * Start-hook priority. design.md (Launch guard) registers at priority 5: a
  * low positive integer. Vortex applies hooks in ascending priority
  * order (api.d.ts line 3798); the exact value only orders among
  * multiple hooks, all of which run before variable expansion and
@@ -111,7 +113,7 @@ export const START_HOOK_PRIORITY = 5;
 export const START_HOOK_ID = 'mod-relay-launch-guard';
 
 /**
- * Shape of the DMF warn-flag file (spec Section 12 soft warning).
+ * Shape of the DMF warn-flag file (design.md, Launch guard, Soft warning).
  * Persisted as JSON at `<modRoot>/.dmf-warning-state.json`. Once
  * written, the warning never re-fires on this Vortex install;
  * deleting the file manually re-arms the warning.
@@ -181,11 +183,11 @@ export function isRelayLaunch(
 }
 
 /**
- * Runs hard checks 1-4 (spec Section 12). Throws a `ProcessCanceled`
+ * Runs hard checks 1-4 (design.md, Launch guard, Hard checks). Throws a `ProcessCanceled`
  * with an actionable, per-check message on the first failure. Returns
  * the mods.lst projection on success so the caller can pass the
- * projected names to the DMF soft-warning decision (spec Section 12
- * soft warning 5).
+ * projected names to the DMF soft-warning decision (design.md, Launch
+ * guard, Soft warning).
  *
  * The checks are ordered so the cheapest, most-likely-to-fail gates
  * run first. Each produces a distinct message so the user can act on
@@ -204,16 +206,17 @@ async function runHardChecks(api: types.IExtensionApi): Promise<ProjectionResult
     );
   }
 
-  // Hard check 2: all required Relay runtime files exist.
+  // Hard check 2: the bundled Relay launcher exists. The extension
+  // treats Relay as an opaque unit; it verifies only the binary it
+  // actually invokes and leaves Relay's internal runtime layout (DLL,
+  // mod_loader Lua, legal files) to Relay to surface at launch.
   const relayDirectory = relayDir();
   const missing = missingRelayFiles(relayDirectory);
   if (missing.length > 0) {
     throw new util.ProcessCanceled(
-      'Cannot launch Mod Relay: the bundled Relay runtime is ' +
-        `incomplete. Expected "${relayDirectory}" to contain every required ` +
-        'file, but the following were missing:\n  - ' +
-        missing.join('\n  - ') +
-        '\nReinstall the extension or place a complete Relay runtime in ' +
+      'Cannot launch Mod Relay: the bundled Relay launcher ' +
+        `("${RELAY_EXECUTABLE}") is missing from "${relayDirectory}". ` +
+        'Reinstall the extension or place a complete Relay runtime in ' +
         "the extension's relay/ directory.",
     );
   }
@@ -251,8 +254,8 @@ async function runHardChecks(api: types.IExtensionApi): Promise<ProjectionResult
 
   // Defense-in-depth: every projected mod's deployed <name>/<name>.mod
   // must exist on disk. The pure projection cannot check this because
-  // it does not touch the filesystem; the hook does. (Spec Section 12
-  // hard check 4, "every enabled mod's deployed <name>/<name>.mod
+  // it does not touch the filesystem; the hook does. (design.md, Launch
+  // guard, Hard checks: "every enabled mod's deployed <name>/<name>.mod
   // exists on disk".)
   const modsContentDir = paths.modsContentDir(util.getVortexPath('userData'));
   const deployedProblems = validateDeployedModsLstEntries(
@@ -274,24 +277,22 @@ async function runHardChecks(api: types.IExtensionApi): Promise<ProjectionResult
 }
 
 /**
- * Returns the subset of {@link RELAY_REQUIRED_FILES} that do NOT exist
- * in `directory`. Pure with respect to the directory argument; the
- * filesystem side effect (stat) is inherent to the check.
+ * Verifies the bundled Relay launcher exists in `directory`. Returns an
+ * empty array when `mod_relay.exe` is present, or `[RELAY_EXECUTABLE]`
+ * when it is absent. The extension treats Relay as an opaque unit and
+ * inspects only the launcher binary it actually invokes; Relay's
+ * internal runtime files are not enumerated here (design.md, Relay tool;
+ * design.md, Launch guard, Hard checks).
  *
- * Exported so unit tests can exercise the multi-file existence check
- * with a temp directory.
+ * Kept as a function (rather than an inline `existsSync`) so the error
+ * message shape stays uniform with the other hard-check helpers and
+ * unit tests can exercise the existence check with a temp directory.
  *
  * @param directory absolute path to the bundled Relay runtime directory.
  */
 export function missingRelayFiles(directory: string): string[] {
-  const missing: string[] = [];
-  for (const rel of RELAY_REQUIRED_FILES) {
-    const fullPath = nodePath.join(directory, rel);
-    if (!existsSync(fullPath)) {
-      missing.push(rel);
-    }
-  }
-  return missing;
+  const fullPath = nodePath.join(directory, RELAY_EXECUTABLE);
+  return existsSync(fullPath) ? [] : [RELAY_EXECUTABLE];
 }
 
 /**
@@ -363,7 +364,7 @@ export function validateDeployedModsLstEntries(
 }
 
 /**
- * DMF soft warning (spec Section 12 soft warning 5). Surfaces a non-
+ * DMF soft warning (design.md, Launch guard, Soft warning). Surfaces a non-
  * blocking notification when:
  *
  * - at least one non-DMF mod is enabled in the active profile; AND

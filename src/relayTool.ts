@@ -1,10 +1,13 @@
 /**
- * Mod Relay supported-tool registration (spec Section 11).
+ * Mod Relay supported-tool registration (design.md, Relay tool).
  *
- * The extension ships Relay as a pinned, tested runtime inside the
- * extension archive. One extension install equals one tested Relay
- * runtime set; release coupling between the extension and Relay is
- * intentional because the extension exists only to drive Relay.
+ * The extension bundles the Mod Relay runtime as an opaque unit beside
+ * the built `index.js`. The only Relay file the extension names is
+ * `mod_relay.exe`, the binary Vortex launches. Relay's internal runtime
+ * layout (the injected DLL, the `mod_loader` Lua files, the legal
+ * files) is Relay's concern; the extension does not inspect or
+ * enumerate it, so a Relay release that adds, removes, renames, or
+ * rearranges internal files cannot break the extension.
  *
  * Tools are NOT registered via a separate `registerTool` method. The
  * Vortex 2.3 API exposes supported tools as a per-game property:
@@ -28,7 +31,9 @@
  *   at runtime.
  * - `ITool.requiredFiles: string[]` (line 6909). Vortex accepts a
  *   directory as the tool directory only if every listed file exists
- *   relative to it.
+ *   relative to it. The list contains only the launcher binary,
+ *   `mod_relay.exe`; the extension does not enumerate Relay's internal
+ *   runtime files (design.md, Relay tool).
  * - `ITool.parameters?: string[]` (line 6916). Each token is a separate
  *   array element; Vortex passes them as spawn arguments and strips
  *   literal quotes (reference doc Section 11).
@@ -45,7 +50,7 @@
  * - `ITool.onStart?: 'hide' | 'hide_recover' | 'close'` (line 6954).
  *   Left unset; the operator's preference controls Vortex visibility.
  *
- * `registerToolVariables` (spec Section 11.1) lives in `./toolVariables.ts`
+ * `registerToolVariables` (design.md, Relay tool, Tool variables) lives in `./toolVariables.ts`
  * because the callback needs the Vortex api to resolve the discovered
  * game path. This module is pure: it has no Vortex imports and no side
  * effects, which keeps the tool object unit-testable without mocking.
@@ -54,7 +59,6 @@
 import type { types } from '@nexusmods/vortex-api';
 
 import {
-  RELAY_DISCOVERY_FILES,
   RELAY_EXECUTABLE,
   RELAY_TOOL_ID,
   RELAY_TOOL_NAME,
@@ -78,7 +82,7 @@ export const RELAY_GAME_BINARY_VAR = 'RELAY_GAME_BINARY';
 export const RELAY_MOD_PATH_VAR = 'RELAY_MOD_PATH';
 
 /**
- * The Mod Relay `ITool` registration object (spec Section 11).
+ * The Mod Relay `ITool` registration object (design.md, Relay tool).
  *
  * Vortex invokes the tool as
  *
@@ -103,7 +107,7 @@ export const relayTool: types.ITool = {
   relative: false,
   queryPath: () => relayDir(),
   executable: () => RELAY_EXECUTABLE,
-  requiredFiles: [...RELAY_DISCOVERY_FILES],
+  requiredFiles: [RELAY_EXECUTABLE],
   defaultPrimary: true,
   exclusive: true,
   parameters: [

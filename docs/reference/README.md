@@ -40,7 +40,7 @@ The reference docs distinguish:
 - **Source-observed** — verified in the exact Vortex 2.3.0 or Relay source.
 - **Derived consequence** — follows from combining two or more documented or
   source-observed facts.
-- **Open design decision** — deliberately left for the specification.
+- **Open design decision** — deliberately left for the architecture doc.
 - **Needs live validation** — cannot be settled by documentation/source alone.
 
 This distinction matters particularly for profile switching and launch timing:

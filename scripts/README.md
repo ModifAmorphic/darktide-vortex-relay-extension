@@ -6,6 +6,11 @@ are installed.
 
 - `dev-install.ts` builds the extension and copies the runtime artifacts into
   a Vortex plugins directory so a restart picks up the new build.
+- `bundle-relay.ts` fetches the latest Mod Relay release into the repo-root
+  `relay/` directory. Run before `dev:install` (for live launch verification)
+  or `package` (for release-archive assembly).
+- `package.ts` assembles the distributable Vortex extension archive into
+  `dist-package/`. Run after a build and a bundle.
 - `package.json` scopes this folder to ESM so Node 24 type-strips the `.ts`
   files directly. The repo root stays CommonJS for the built extension output.
 
@@ -251,38 +256,23 @@ Verifies the Relay supported-tool registration, the launch-time tool
 variables, and the start hook that validates state and regenerates
 `mods.lst` immediately before launch.
 
-The extension ships the Relay runtime as a pinned directory beside the
-built `index.js` (`relay/`). That directory is gitignored and is
-bundled into the release archive by `scripts/bundle-relay.ts` in a
-later step. For dev iteration before that script lands, the operator
-places a complete Relay runtime in `repo-root/relay/` and
-`pnpm dev:install` copies it into the install directory alongside the
-built extension.
+The extension ships the Relay runtime as a directory beside the built
+`index.js` (`relay/`). That directory is gitignored and is bundled into the
+release archive by `scripts/package.ts`. To populate it, run
+`pnpm bundle:relay`, which fetches the latest Mod Relay release and extracts
+it verbatim into `repo-root/relay/`. `pnpm dev:install` then copies it into
+the install directory alongside the built extension.
 
 Setup:
 
-1. Populate `relay/` in the repo root with a complete Relay runtime:
+1. Populate `relay/` in the repo root by running `pnpm bundle:relay`. This
+   fetches the latest Relay release and extracts the full runtime tree
+   (`mod_relay.exe`, `relay_shell.dll`, `mod_loader/`, `LICENSE`,
+   `THIRD_PARTY_NOTICES.md`, and whatever else Relay ships).
 
-   ```text
-   relay/
-     mod_relay.exe
-     relay_shell.dll
-     mod_loader/
-       init.lua
-       file.lua
-       class_registry.lua
-       require_bridge.lua
-       lifecycle.lua
-       mod_manager.lua
-       dmf_adapter.lua
-     LICENSE
-     THIRD_PARTY_NOTICES.md
-   ```
-
-   The directory is gitignored; never commit Relay binaries. If
-   `relay/` is absent, `pnpm dev:install` skips the copy silently, and
-   the start hook blocks launch with a specific error until you
-   populate it.
+   The directory is gitignored; never commit Relay binaries. If `relay/` is
+   absent, `pnpm dev:install` skips the copy silently, and the start hook
+   blocks launch with a specific error until you populate it.
 
 2. `pnpm dev:install --target "$env:APPDATA\Vortex\Plugins"` and restart
    Vortex.
@@ -447,9 +437,117 @@ point: the value must be `game-managed-buttons` (the API types accept
 any string for the group parameter; only Vortex's renderer knows the
 valid values).
 
-### Future steps
+## Bundle the Mod Relay runtime
 
-Each subsequent implementation step adds a section here when it lands:
+Fetch the latest Mod Relay release into the repo-root `relay/` directory.
+This is needed before `pnpm dev:install` (so live launches find a complete
+runtime) and before `pnpm package` (so the release archive contains the
+runtime).
 
-- Full archive assembly and Relay bundling (step 8): distributable archive
-  layout.
+PowerShell:
+
+```powershell
+pnpm bundle:relay
+```
+
+The script:
+
+1. Fetches the releases list from the GitHub API (no auth needed for a
+   single run; set `GITHUB_TOKEN` in CI to raise the 60/hr limit to
+   5000/hr).
+2. Selects the newest non-draft release (pre-release inclusive) by
+   `published_at`, then selects the asset matching
+   `vX.Y.Z-windows-x64.zip`.
+3. Downloads the zip and extracts it verbatim into `relay/`, replacing
+   any existing directory.
+4. Verifies `relay/mod_relay.exe` exists at the target root. The
+   extension's only Relay contract is `mod_relay.exe`; it does not
+   inspect or enumerate Relay's internal files.
+
+`--out <dir>` overrides the target directory (default `<repo>/relay`).
+`pnpm bundle:relay --help` shows the full usage.
+
+### Common errors
+
+- `HTTP 403` from the GitHub API: you are rate-limited. Wait and retry,
+  or set `GITHUB_TOKEN`.
+- `did not contain mod_relay.exe at the archive root`: the release zip
+  layout changed. Inspect the extracted directory and report this.
+
+## Assemble the distributable archive
+
+Build the `.zip` archive that a user drops into Vortex.
+
+PowerShell:
+
+```powershell
+pnpm package
+```
+
+The script:
+
+1. Runs `pnpm build` first (pass `--no-build` to skip if you already
+   built).
+2. Stages `info.json`, `gameart.png`, `dist/index.js` (as `index.js`),
+   and the `relay/` tree in a temp directory.
+3. Zips it so the four entries sit at the archive root with no wrapper
+   directory (Vortex rejects archives wrapped in a top-level folder).
+4. Reads the zip's central directory to verify the root layout
+   (`info.json`, `gameart.png`, `index.js`, `relay/mod_relay.exe`).
+5. Cleans the staging dir and prints the output path and size.
+
+Default output:
+`<repo>/dist-package/darktide-relay-vortex-extension-<info-version>.zip`.
+`--out <path>` overrides the output archive path.
+`pnpm package --help` shows the full usage.
+
+### Common errors
+
+- `dist/index.js does not exist`: run `pnpm build` first, or drop
+  `--no-build`.
+- `relay/mod_relay.exe does not exist`: run `pnpm bundle:relay` first to
+  fetch the runtime.
+- `Archive root layout verification failed`: a packaging bug. The error
+  lists the zip's entries; report it with that list.
+
+### Verify the archive root layout manually
+
+After `pnpm package`, the archive should contain, at the root, with no
+wrapper directory:
+
+```text
+info.json
+gameart.png
+index.js
+relay/
+  mod_relay.exe
+  (whatever Relay shipped)
+```
+
+To inspect:
+
+```powershell
+$zip = "dist-package\darktide-relay-vortex-extension-<version>.zip"
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::OpenRead($zip).Entries |
+  ForEach-Object { $_.FullName }
+```
+
+The first four entries (`info.json`, `gameart.png`, `index.js`,
+`relay/...`) must have no directory prefix. A wrapper directory (e.g.
+`darktide-relay/info.json`) means Vortex will reject the archive.
+
+## Release pipeline
+
+Push to `main` triggers release-please, which opens a release PR proposing
+the next version from the conventional commits since the last release.
+Merging that release PR cuts the tag and GitHub release, and the release
+workflow then runs `bundle:relay` and `package` in CI and uploads the
+archive to the release. A release ships only when you merge the release
+PR; feature PR merges do not release. Add a `Release-As: X.Y.Z` footer to
+a merge commit only if you want to override the version release-please
+computed.
+
+Releases are marked as pre-release until Mod Relay ships 1.0.0 stable
+(`prerelease: true` in `.release-please-config.json`). Flip that flag off
+when the extension is ready for a stable release.

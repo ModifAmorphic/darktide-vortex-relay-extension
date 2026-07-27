@@ -2,8 +2,8 @@
  * Atomic filesystem write helper.
  *
  * Writes a file via a tmp file and rename, so concurrent readers never
- * observe a partial or missing file. Used by `mods.lst` projection (spec
- * Section 10.1) and any future write where read-while-writing safety
+ * observe a partial or missing file. Used by `mods.lst` projection (design.md,
+ * mods.lst projection, Atomic write) and any future write where read-while-writing safety
  * matters.
  *
  * Version grounding (verified against the installed `@types/node@24.13.3`

@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: release-please
+    runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      sha: ${{ steps.release.outputs.sha }}
+      version: ${{ steps.release.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v5
+        with:
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+          target-branch: ${{ github.ref_name }}
+
+  release:
+    name: build, bundle, package, upload
+    runs-on: windows-latest
+    needs: release-please
+    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.sha }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Inject release version into info.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ needs.release-please.outputs.tag_name }}"
+          VERSION="${TAG#v}"
+          VERSION="$VERSION" node -e "const fs = require('fs'); const info = JSON.parse(fs.readFileSync('info.json', 'utf8')); info.version = process.env.VERSION; fs.writeFileSync('info.json', JSON.stringify(info, null, 2) + '\n');"
+
+      - name: Bundle Relay runtime
+        run: pnpm bundle:relay
+
+      - name: Package release archive
+        run: pnpm package
+
+      - name: Find archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCHIVE=$(ls dist-package/*.zip | head -1)
+          echo "archive_path=${ARCHIVE}" >> $GITHUB_OUTPUT
+        id: find_archive
+
+      - name: Upload archive to release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "${{ needs.release-please.outputs.tag_name }}" "${{ steps.find_archive.outputs.archive_path }}" --clobber

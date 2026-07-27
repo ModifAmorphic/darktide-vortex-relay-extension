@@ -14,10 +14,10 @@
  *
  * The script copies `info.json`, `gameart.png`, `dist/index.js` (renamed to
  * `index.js`), and (when present) the repo-root `relay/` runtime directory
- * into `<target>/darktide-relay/`. The `relay/` directory is gitignored
- * (bundled into the release archive by `scripts/bundle-relay.ts` in a
- * later step); the operator may populate it manually to drive live
- * launch verification before the bundling script lands.
+ * into `<target>/darktide-relay/`. The `relay/` directory is gitignored and
+ * is bundled into the release archive by `scripts/package.ts`; populate it
+ * by running `pnpm bundle:relay` (which fetches the latest Relay release)
+ * before `dev:install` to drive live launch verification.
  *
  * Execution strategy: this file is plain TypeScript source run directly by
  * Node 24's native type stripping. A scoped `scripts/package.json` declares
@@ -195,10 +195,10 @@ function main(): void {
  *
  * The bundled `relay/` runtime directory is copied when present in the
  * repo root. The directory is gitignored (Relay is bundled into the
- * distributable archive by `scripts/bundle-relay.ts`, which lands in a
- * later step); until the operator populates it manually, the copy is
- * skipped silently. The start hook's "Relay files exist" hard check
- * (spec Section 12) blocks launch with an actionable message until a
+ * distributable archive by `scripts/package.ts`); populate it by running
+ * `pnpm bundle:relay`. When `relay/` is absent, the copy is skipped
+ * silently. The start hook's "Relay files exist" hard check
+ * (design.md, Launch guard) blocks launch with an actionable message until a
  * complete runtime is in place, so dev iteration without a runtime is
  * safe but cannot launch Darktide.
  */
@@ -229,9 +229,7 @@ function install(target: string): void {
 
   // Copy the bundled Relay runtime if the operator has populated it.
   // The directory is gitignored and is bundled into the release archive
-  // by `scripts/bundle-relay.ts` (a later step); until then, the
-  // operator may place a complete Relay runtime in `relay/` to drive
-  // live launch verification.
+  // by `scripts/package.ts`; populate it by running `pnpm bundle:relay`.
   const relaySummary = copyRelayRuntime(installDir);
 
   const summary = [
@@ -249,9 +247,7 @@ function install(target: string): void {
  * Recursively copies the repo-root `relay/` directory into `<installDir>/relay/`
  * when it exists. Returns a one-line summary for the install banner.
  * Silent skip (with a "not present" note) when the operator has not yet
- * populated the directory; this is the expected state until
- * `scripts/bundle-relay.ts` lands or the operator manually extracts a
- * Relay release into `relay/`.
+ * populated the directory; run `pnpm bundle:relay` to populate it.
  *
  * Uses `fs.cpSync` with `recursive: true` so the entire runtime tree
  * (`mod_loader/` Lua files, the EXE and DLL, and the legal files)

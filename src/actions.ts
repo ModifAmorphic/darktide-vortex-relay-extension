@@ -1,5 +1,5 @@
 /**
- * User-facing open-directory actions (spec Section 13).
+ * User-facing open-directory actions (design.md, User-facing actions).
  *
  * Two actions are registered, both on the `game-managed-buttons` action
  * group so Vortex renders them on the Darktide dashboard tile alongside
@@ -14,7 +14,7 @@
  *   surfaces an explanatory notification when Darktide has not yet
  *   generated console logs.
  *
- * Two other capabilities named in spec Section 13 are intentionally NOT
+ * Two other capabilities named in design.md (User-facing actions) are intentionally NOT
  * registered as custom actions:
  *
  * - "Launch modded with Mod Relay" is Vortex's built-in primary-tool

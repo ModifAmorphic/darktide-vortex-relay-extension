@@ -93,11 +93,11 @@ export function loadOrderDir(vortexUserData: string): string {
  * dev iteration (`dev-install` copies `relay/` next to `index.js`).
  *
  * `__dirname` is available because Rolldown emits CommonJS for the Node
- * platform (spec Section 7). Verified at implementation time: the bundled
+ * platform (design.md, Mod directory). Verified at implementation time: the bundled
  * `dist/index.js` references `__dirname` verbatim and Node's CommonJS
  * module loader supplies it as the directory of the loaded module.
  *
- * Spec Section 11 names this as the Relay tool's `queryPath` return
+ * design.md (Relay tool) names this as the Relay tool's `queryPath` return
  * value. The Relay runtime itself is gitignored and not bundled until
  * step 8; until then the start hook's "Relay files exist" hard check
  * blocks launch until the operator populates `relay/`.

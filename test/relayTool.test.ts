@@ -2,10 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DMF_WARNING_FILE_NAME,
-  MOD_LOADER_FILES,
-  RELAY_DISCOVERY_FILES,
   RELAY_EXECUTABLE,
-  RELAY_REQUIRED_FILES,
   RELAY_TOOL_ID,
   RELAY_TOOL_NAME,
   RELAY_TOOL_SHORT_NAME,
@@ -77,35 +74,26 @@ describe('relayTool registration', () => {
 });
 
 describe('relayTool requiredFiles', () => {
-  it('uses the quick-discovery subset, not the full set', () => {
-    // The ITool.requiredFiles list is intentionally short so Vortex
-    // discovery stays fast. The start hook verifies the full set.
-    expect(relayTool.requiredFiles).toEqual([...RELAY_DISCOVERY_FILES]);
+  it('lists only the launcher binary the extension actually invokes', () => {
+    // The extension treats Relay as an opaque unit; Vortex discovery
+    // verifies only the launcher binary. Relay's internal runtime files
+    // (DLL, mod_loader Lua, legal files) are not enumerated.
+    expect(relayTool.requiredFiles).toEqual([RELAY_EXECUTABLE]);
   });
 
-  it('includes the launcher and shell DLL (the unique runtime markers)', () => {
-    expect(relayTool.requiredFiles).toContain(RELAY_EXECUTABLE);
-    expect(relayTool.requiredFiles).toContain('relay_shell.dll');
-  });
-
-  it('includes the mod loader entry points and legal files', () => {
-    expect(relayTool.requiredFiles).toContain('mod_loader/init.lua');
-    expect(relayTool.requiredFiles).toContain('mod_loader/file.lua');
-    expect(relayTool.requiredFiles).toContain('mod_loader/mod_manager.lua');
-    expect(relayTool.requiredFiles).toContain('LICENSE');
-    expect(relayTool.requiredFiles).toContain('THIRD_PARTY_NOTICES.md');
-  });
-
-  it('is a strict subset of RELAY_REQUIRED_FILES (start hook verifies more)', () => {
-    for (const f of relayTool.requiredFiles) {
-      expect(RELAY_REQUIRED_FILES).toContain(f);
-    }
+  it('does not enumerate Relay internal runtime files', () => {
+    // Defense against re-introducing the file-list contract: none of
+    // Relay's internal files may appear in requiredFiles.
+    expect(relayTool.requiredFiles).not.toContain('relay_shell.dll');
+    expect(relayTool.requiredFiles).not.toContain('mod_loader/init.lua');
+    expect(relayTool.requiredFiles).not.toContain('LICENSE');
+    expect(relayTool.requiredFiles).not.toContain('THIRD_PARTY_NOTICES.md');
   });
 });
 
 describe('relayTool parameters', () => {
   it('emits each flag and value as a separate token (no shell quoting)', () => {
-    // Spec Section 11: Vortex passes parameters as spawn arguments and
+    // design.md (Relay tool): Vortex passes parameters as spawn arguments and
     // strips literal quote characters. Keeping each value its own token
     // avoids the need for any quoting, even when a path contains spaces.
     expect(relayTool.parameters).toEqual([
@@ -147,39 +135,14 @@ describe('relayTool parameters', () => {
 });
 
 describe('Relay constants consistency', () => {
-  it('RELAY_REQUIRED_FILES contains every mod_loader Lua file under mod_loader/', () => {
-    for (const lua of MOD_LOADER_FILES) {
-      expect(RELAY_REQUIRED_FILES).toContain(`mod_loader/${lua}`);
-    }
-  });
-
-  it('RELAY_REQUIRED_FILES contains exactly 11 files (exe, dll, 7 lua, 2 legal)', () => {
-    // 1 EXE + 1 DLL + 7 Lua + 1 LICENSE + 1 THIRD_PARTY_NOTICES.md.
-    expect(RELAY_REQUIRED_FILES).toHaveLength(11);
-  });
-
-  it('RELAY_DISCOVERY_FILES is a strict subset of RELAY_REQUIRED_FILES', () => {
-    for (const f of RELAY_DISCOVERY_FILES) {
-      expect(RELAY_REQUIRED_FILES).toContain(f);
-    }
-  });
-
   it('uses the same DMF warning filename as the start hook', () => {
     expect(DMF_WARNING_FILE_NAME).toBe('.dmf-warning-state.json');
   });
 
-  it('MOD_LOADER_FILES contains exactly the seven published Relay Lua files', () => {
-    // Reference doc Section 2: the runtime directory contains seven
-    // mod_loader Lua files; the start hook verifies each exists.
-    expect(MOD_LOADER_FILES).toEqual([
-      'init.lua',
-      'file.lua',
-      'class_registry.lua',
-      'require_bridge.lua',
-      'lifecycle.lua',
-      'mod_manager.lua',
-      'dmf_adapter.lua',
-    ]);
-    expect(MOD_LOADER_FILES).toHaveLength(7);
+  it('exposes mod_relay.exe as the single Relay filename the extension knows', () => {
+    expect(RELAY_EXECUTABLE).toBe('mod_relay.exe');
+    // The requiredFiles list derives solely from RELAY_EXECUTABLE; this
+    // guards against a future re-introduction of a file-list constant.
+    expect(relayTool.requiredFiles).toEqual([RELAY_EXECUTABLE]);
   });
 });

@@ -17,7 +17,7 @@ import {
  *
  * Grounded identifiers and field semantics come from
  * `docs/reference/vortex-extension-development.md` Section 5 and
- * `docs/architecture/extension-spec.md` Section 6. The internal game ID is
+ * `docs/architecture/design.md` (Game registration). The internal game ID is
  * distinct from the Nexus domain; the Nexus download/NXM association is wired
  * through `details.nexusPageId`.
  *
@@ -39,7 +39,7 @@ import {
  *
  * The discovered Darktide install path (`discovery.path`) is intentionally
  * unused. The extension never writes inside the Darktide installation
- * (design invariant, spec Section 1), so all directories it creates live
+ * (design invariant; design.md, Design invariants), so all directories it creates live
  * under Vortex userData.
  *
  * @param discovery Vortex's discovery result for the located Darktide install.
@@ -75,9 +75,9 @@ export async function setupDiscoveredGame(discovery: types.IDiscoveryResult): Pr
  * mods content directory (`<deployDir>/mods`) so no deployment ever lands
  * inside the Darktide install. `mergeMods: true` routes every staged mod
  * tree to that shared target root, so each mod deploys to
- * `<modsContentDir>/<name>/`, matching the Mod Relay layout (spec Section 7).
+ * `<modsContentDir>/<name>/`, matching the Mod Relay layout (design.md, Mod directory).
  *
- * `supportedTools` registers the Mod Relay tool (spec Section 11).
+ * `supportedTools` registers the Mod Relay tool (design.md, Relay tool).
  * Vortex 2.3 has no separate `registerTool` method on `IExtensionContext`;
  * supported tools are declared per-game via `IGame.supportedTools` (api.d.ts
  * line 4214). Vortex discovers the tool from this list and surfaces it in
@@ -88,7 +88,7 @@ export async function setupDiscoveredGame(discovery: types.IDiscoveryResult): Pr
  * (`openModFolder` in the renderer) resolves its target by calling
  * `getGame(gameId).getModPaths(discovered.path)[""]`. Without `getModPaths`
  * defined, that action silently fails for Darktide, so this is what makes
- * the built-in action work (spec Section 13). The empty-string key is the
+ * the built-in action work (design.md, User-facing actions). The empty-string key is the
  * default mod type, and returning `modsContentDir` (NOT `deployDir`) is
  * deliberate: `modsContentDir` is the directory that actually contains the
  * deployed mod folders and `mods.lst`, and it is the same value

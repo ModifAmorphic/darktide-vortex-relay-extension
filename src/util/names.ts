@@ -3,7 +3,8 @@
  *
  * The canonical name is the `<name>` in `<name>/<name>.mod`. Relay constructs
  * a filesystem path directly from this value, so the Vortex installer is the
- * correct boundary at which to reject unsafe values. See spec Section 8.2
+ * correct boundary at which to reject unsafe values. See design.md (Installer,
+ * Safe-name validation)
  * and the reference doc's "Safe names" rule.
  *
  * No Vortex imports, no side effects. Every function here is a pure unit
@@ -19,7 +20,7 @@ const WINDOWS_DRIVE_PREFIX = /^[a-zA-Z]:/;
 
 /**
  * Returns `true` if and only if `name` is a safe canonical Darktide mod name
- * per spec Section 8.2:
+ * per design.md (Installer, Safe-name validation):
  *
  * - non-empty after trimming;
  * - not `.` and not `..`;
@@ -70,7 +71,7 @@ export function isSafeCanonicalName(name: string): boolean {
  * Each duplicate is returned as its lowercased form, deduplicated. Names
  * appearing only once are not returned. Used by the installer for both
  * in-archive duplicate detection and cross-mod-state duplicate detection
- * (spec Section 8.4).
+ * (design.md, Installer, Duplicate canonical names).
  *
  * Examples:
  *
