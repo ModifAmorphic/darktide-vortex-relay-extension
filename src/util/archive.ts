@@ -7,8 +7,9 @@
  * The Darktide mod layout is `<name>/<name>.mod` plus optional siblings
  * (`scripts/...`, assets, etc.). Nexus archives are not guaranteed to put
  * the canonical mod directory at the archive root, so these helpers reason
- * from the `.mod` entry path rather than the archive root. See spec Section
- * 8.3 and the reference doc's "Archive normalization implications".
+ * from the `.mod` entry path rather than the archive root. See design.md
+ * (Installer, Multiple .mod roots)
+ * and the reference doc's "Archive normalization implications".
  */
 
 /** File extension (case-insensitive) that identifies the canonical mod entry. */
@@ -178,7 +179,7 @@ export function deriveCanonicalName(modEntryPath: string): string {
  *
  * Two candidates are placed in different groups when neither containing
  * directory is an ancestor or descendant of the other (the multiple-root
- * case rejected per spec Section 8.3).
+ * case rejected per design.md, Installer, Multiple .mod roots).
  *
  * The Map key is the path of the first candidate in each group; the value
  * is the list of candidates in that group. The key choice is for stable
@@ -277,7 +278,8 @@ export function determineSubtreeRoot(modEntryPath: string, _files: readonly stri
  * when the `.mod` is at the archive root, since there is no containing
  * directory to disagree with.
  *
- * Implements the directory-agreement rule from spec Section 8.2: an archive
+ * Implements the directory-agreement rule from design.md (Installer,
+ * Safe-name validation): an archive
  * whose layout is `foo/example.mod` (containing directory disagrees with
  * the `.mod` basename) is rejected rather than guessing which name is
  * canonical.

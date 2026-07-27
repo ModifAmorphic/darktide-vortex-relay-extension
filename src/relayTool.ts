@@ -1,5 +1,5 @@
 /**
- * Mod Relay supported-tool registration (spec Section 11).
+ * Mod Relay supported-tool registration (design.md, Relay tool).
  *
  * The extension bundles the Mod Relay runtime as an opaque unit beside
  * the built `index.js`. The only Relay file the extension names is
@@ -33,7 +33,7 @@
  *   directory as the tool directory only if every listed file exists
  *   relative to it. The list contains only the launcher binary,
  *   `mod_relay.exe`; the extension does not enumerate Relay's internal
- *   runtime files (spec Section 11).
+ *   runtime files (design.md, Relay tool).
  * - `ITool.parameters?: string[]` (line 6916). Each token is a separate
  *   array element; Vortex passes them as spawn arguments and strips
  *   literal quotes (reference doc Section 11).
@@ -50,7 +50,7 @@
  * - `ITool.onStart?: 'hide' | 'hide_recover' | 'close'` (line 6954).
  *   Left unset; the operator's preference controls Vortex visibility.
  *
- * `registerToolVariables` (spec Section 11.1) lives in `./toolVariables.ts`
+ * `registerToolVariables` (design.md, Relay tool, Tool variables) lives in `./toolVariables.ts`
  * because the callback needs the Vortex api to resolve the discovered
  * game path. This module is pure: it has no Vortex imports and no side
  * effects, which keeps the tool object unit-testable without mocking.
@@ -82,7 +82,7 @@ export const RELAY_GAME_BINARY_VAR = 'RELAY_GAME_BINARY';
 export const RELAY_MOD_PATH_VAR = 'RELAY_MOD_PATH';
 
 /**
- * The Mod Relay `ITool` registration object (spec Section 11).
+ * The Mod Relay `ITool` registration object (design.md, Relay tool).
  *
  * Vortex invokes the tool as
  *

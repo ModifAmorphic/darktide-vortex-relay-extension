@@ -198,7 +198,7 @@ function main(): void {
  * distributable archive by `scripts/package.ts`); populate it by running
  * `pnpm bundle:relay`. When `relay/` is absent, the copy is skipped
  * silently. The start hook's "Relay files exist" hard check
- * (spec Section 12) blocks launch with an actionable message until a
+ * (design.md, Launch guard) blocks launch with an actionable message until a
  * complete runtime is in place, so dev iteration without a runtime is
  * safe but cannot launch Darktide.
  */

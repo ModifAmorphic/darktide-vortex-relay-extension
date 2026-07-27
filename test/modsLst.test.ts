@@ -13,9 +13,8 @@ import * as paths from '../src/paths';
 
 /**
  * For the projectModsLst tests, each test gets a fresh isolated tmp
- * directory created with `fs.mkdtemp`, matching the per-test isolation
- * described in spec Section 14. The pure serializeModsLst tests do not
- * touch the filesystem.
+ * directory created with `fs.mkdtemp`, matching per-test isolation.
+ * The pure serializeModsLst tests do not touch the filesystem.
  */
 let dir: string;
 

@@ -1,6 +1,6 @@
 /**
- * Tool variable resolver for the Mod Relay launch (spec Section
- * 11.1).
+ * Tool variable resolver for the Mod Relay launch (design.md, Relay tool,
+ * Tool variables).
  *
  * Registered via `context.registerToolVariables(callback)`. Vortex
  * invokes the callback at launch time, after start hooks have run but
@@ -21,7 +21,7 @@
  *
  * Both resolve from current Vortex state (active game discovery and
  * the extension's path constants). Neither depends on profile-specific
- * values that change between profile switches (spec Section 11.1).
+ * values that change between profile switches (design.md, Relay tool, Tool variables).
  *
  * Version grounding (verified against the installed
  * `@nexusmods/vortex-api@2.3.0-beta.1` types):

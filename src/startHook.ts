@@ -1,5 +1,5 @@
 /**
- * Launch guard for the Mod Relay tool (spec Section 12).
+ * Launch guard for the Mod Relay tool (design.md, Launch guard).
  *
  * Registered via `context.registerStartHook(priority, id, hook)`. Vortex
  * runs all start hooks before argument-variable expansion and process
@@ -12,7 +12,7 @@
  * runs the hard checks for Relay launches. Non-Relay launches return the
  * call unchanged so the hook does not affect unrelated tools.
  *
- * Hard checks (reject on failure, spec Section 12):
+ * Hard checks (reject on failure, design.md, Launch guard, Hard checks):
  *
  * 1. Active profile belongs to the Darktide game.
  * 2. The bundled Relay launcher (`mod_relay.exe`) exists in the bundled
@@ -97,7 +97,7 @@ import { relayDir } from './paths';
 import { writeAtomic } from './util/fs';
 
 /**
- * Start-hook priority. The spec Section 12 registers at priority 5: a
+ * Start-hook priority. design.md (Launch guard) registers at priority 5: a
  * low positive integer. Vortex applies hooks in ascending priority
  * order (api.d.ts line 3798); the exact value only orders among
  * multiple hooks, all of which run before variable expansion and
@@ -113,7 +113,7 @@ export const START_HOOK_PRIORITY = 5;
 export const START_HOOK_ID = 'mod-relay-launch-guard';
 
 /**
- * Shape of the DMF warn-flag file (spec Section 12 soft warning).
+ * Shape of the DMF warn-flag file (design.md, Launch guard, Soft warning).
  * Persisted as JSON at `<modRoot>/.dmf-warning-state.json`. Once
  * written, the warning never re-fires on this Vortex install;
  * deleting the file manually re-arms the warning.
@@ -183,11 +183,11 @@ export function isRelayLaunch(
 }
 
 /**
- * Runs hard checks 1-4 (spec Section 12). Throws a `ProcessCanceled`
+ * Runs hard checks 1-4 (design.md, Launch guard, Hard checks). Throws a `ProcessCanceled`
  * with an actionable, per-check message on the first failure. Returns
  * the mods.lst projection on success so the caller can pass the
- * projected names to the DMF soft-warning decision (spec Section 12
- * soft warning 5).
+ * projected names to the DMF soft-warning decision (design.md, Launch
+ * guard, Soft warning).
  *
  * The checks are ordered so the cheapest, most-likely-to-fail gates
  * run first. Each produces a distinct message so the user can act on
@@ -254,8 +254,8 @@ async function runHardChecks(api: types.IExtensionApi): Promise<ProjectionResult
 
   // Defense-in-depth: every projected mod's deployed <name>/<name>.mod
   // must exist on disk. The pure projection cannot check this because
-  // it does not touch the filesystem; the hook does. (Spec Section 12
-  // hard check 4, "every enabled mod's deployed <name>/<name>.mod
+  // it does not touch the filesystem; the hook does. (design.md, Launch
+  // guard, Hard checks: "every enabled mod's deployed <name>/<name>.mod
   // exists on disk".)
   const modsContentDir = paths.modsContentDir(util.getVortexPath('userData'));
   const deployedProblems = validateDeployedModsLstEntries(
@@ -281,8 +281,8 @@ async function runHardChecks(api: types.IExtensionApi): Promise<ProjectionResult
  * empty array when `mod_relay.exe` is present, or `[RELAY_EXECUTABLE]`
  * when it is absent. The extension treats Relay as an opaque unit and
  * inspects only the launcher binary it actually invokes; Relay's
- * internal runtime files are not enumerated here (spec Section 11,
- * Section 12 hard check 2).
+ * internal runtime files are not enumerated here (design.md, Relay tool;
+ * design.md, Launch guard, Hard checks).
  *
  * Kept as a function (rather than an inline `existsSync`) so the error
  * message shape stays uniform with the other hard-check helpers and
@@ -364,7 +364,7 @@ export function validateDeployedModsLstEntries(
 }
 
 /**
- * DMF soft warning (spec Section 12 soft warning 5). Surfaces a non-
+ * DMF soft warning (design.md, Launch guard, Soft warning). Surfaces a non-
  * blocking notification when:
  *
  * - at least one non-DMF mod is enabled in the active profile; AND

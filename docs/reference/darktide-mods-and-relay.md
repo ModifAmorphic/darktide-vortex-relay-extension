@@ -392,7 +392,7 @@ release. Provenance for diagnostics is available via
 | Dependency solving | Optional future policy | No |
 | Game-directory patching | Must not do | Does not do |
 
-## 13. Inputs still needed before specification
+## 13. Policy decisions left to the caller
 
 Relay leaves these policies to the extension:
 
@@ -405,8 +405,8 @@ Relay leaves these policies to the extension:
 6. whether any Darktide arguments are forwarded after Relay's `--`; and
 7. what archive layouts the first release promises to normalize.
 
-The extension spec should make these choices explicitly; none is hidden inside
-Relay.
+The architecture doc (`docs/architecture/design.md`) records the choices this
+extension made; none is hidden inside Relay.
 
 ## 14. Source index
 

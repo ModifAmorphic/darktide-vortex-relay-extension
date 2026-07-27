@@ -53,7 +53,8 @@ Actions CI). The extension entry stub exists but registers no capabilities
 yet; there is no bundled Relay runtime or release workflow yet.
 
 The reference docs establish that the required Vortex and Relay integration
-surfaces exist. The architecture spec is the binding implementation design.
+surfaces exist. The architecture doc (`docs/architecture/design.md`) is the
+binding design.
 
 Production is built from the ground up with testability, review, and
 production-readiness as first-class goals. Do not copy or adapt another Darktide
@@ -64,7 +65,7 @@ Before planning implementation, read:
 
 - `docs/reference/vortex-extension-development.md`
 - `docs/reference/darktide-mods-and-relay.md`
-- `docs/architecture/extension-spec.md`
+- `docs/architecture/design.md`
 
 ## Product scope and boundaries
 
@@ -148,12 +149,13 @@ as a Relay requirement or a Relay-owned root.
 
 The `feat/load-order` branch on the remote is preserved as a reference for the
 abandoned `registerLoadOrder` design. Do not merge or delete it. The active
-design uses Vortex's built-in `util.sortMods` instead (spec Section 9, PR #7).
+design uses Vortex's built-in `util.sortMods` instead (design.md, Mod
+ordering; PR #7).
 
 ## Implementation progress
 
-Tracks which steps from spec Section 17 have landed. Each step ships in its
-own PR.
+Tracks which implementation steps have landed. Each step shipped in its own
+PR.
 
 - [x] Step 1: Toolchain scaffolding (PR #2)
 - [x] Step 2: Game registration (PR #3)
@@ -294,7 +296,7 @@ src/
     readDmfWarningFlag, persistDmfWarningFlag) are exported for unit
     testing.
   actions.ts
-    User-facing open-directory actions (spec Section 13).
+    User-facing open-directory actions (design.md, User-facing actions).
     registerActions(context) registers two actions on the
     `game-managed-buttons` group so they render on the Games tab
     Darktide tile, in the Open submenu behind the tile's vertical
@@ -457,9 +459,10 @@ test/
       activeProfile, discoveryByGame, and ProcessCanceled stubs.
 docs/
   architecture/
-    extension-spec.md
-      Selected production design and component/lifecycle contracts for the
-      extension. Binding for implementation.
+    design.md
+      Selected production design and component/lifecycle contracts.
+  development.md
+      Human-facing developer guide: build, test, develop, package, release.
   reference/
     README.md
       Reference index, version baseline, and evidence labels.
@@ -627,8 +630,8 @@ that handoff requires live validation.
 
 ### Commands
 
-Repo-root commands. Run with Node 24 and pnpm 11.15+ (see Section 2 of the
-architecture spec for the version baseline and grounding date):
+Repo-root commands. Run with Node 24 and pnpm 11.15+ (see `docs/development.md`
+for the toolchain versions and grounding date):
 
 - `pnpm install` -- install dependencies (uses `pnpm-lock.yaml`).
 - `pnpm typecheck` -- type-check sources without emitting (`tsc --noEmit`).
@@ -719,8 +722,10 @@ than one hand-authored happy path.
 
 ## Key docs
 
-- `docs/architecture/extension-spec.md` -- selected production design and
-  component/lifecycle contracts. Binding for implementation.
+- `docs/architecture/design.md` -- selected production design and
+  component/lifecycle contracts.
+- `docs/development.md` -- human-facing developer guide: build, test, develop,
+  package, release.
 - `docs/reference/README.md` -- reference baseline, evidence labels, and index.
 - `docs/reference/vortex-extension-development.md` -- Vortex package, API,
   discovery, installer, deployment, profile, load-order, tool, and test facts.

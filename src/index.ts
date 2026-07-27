@@ -15,11 +15,11 @@ import { createToolVariablesCallback } from './toolVariables';
  * matching the `ExtensionInit` contract). Capabilities registered here:
  *
  * - Darktide game registration (PR #3). The game registration's
- *   `supportedTools` array carries the Mod Relay tool (spec Section
- *   11); Vortex 2.3 has no separate `registerTool` method, so the tool
+ *   `supportedTools` array carries the Mod Relay tool (design.md,
+ *   Relay tool); Vortex 2.3 has no separate `registerTool` method, so the tool
  *   rides along with the game registration. The game registration also
  *   defines `getModPaths`, which enables Vortex's built-in "Open Mod
- *   Folder" dashboard action (spec Section 13).
+ *   Folder" dashboard action (design.md, User-facing actions).
  * - The `.mod` archive installer (PR #4), which auto-emits an `after DMF`
  *   dependency rule for every non-DMF mod.
  * - Tool variables (`RELAY_GAME_BINARY`, `RELAY_MOD_PATH`) resolved at
@@ -27,8 +27,8 @@ import { createToolVariablesCallback } from './toolVariables';
  *   receive the discovered Darktide install and the extension's deploy
  *   directory.
  * - The launch-guard start hook, which validates state and regenerates
- *   `mods.lst` immediately before Relay launches (spec Section 12).
- * - Two user-facing open-directory actions (spec Section 13): Open
+ *   `mods.lst` immediately before Relay launches (design.md, Launch guard).
+ * - Two user-facing open-directory actions (design.md, User-facing actions): Open
  *   Relay log directory and Open Darktide console-log directory. The
  *   "Launch modded" and "Open Mod Folder" capabilities are Vortex
  *   built-ins (primary-tool launch and `getModPaths`) and are NOT

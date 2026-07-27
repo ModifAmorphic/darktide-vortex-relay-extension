@@ -12,7 +12,7 @@ import { isSafeCanonicalName } from './util/names';
  * for the registered Darktide game), normalizes them into the canonical
  * `<name>/<name>.mod` layout the Relay mod loader expects, persists the
  * canonical name as a Vortex mod attribute (`relayModName`), and rejects
- * archives that are ambiguous or unsafe. See spec Section 8 and the
+ * archives that are ambiguous or unsafe. See design.md (Installer) and the
  * reference doc's "Archive normalization implications".
  *
  * Version grounding (verified against the installed
@@ -28,9 +28,9 @@ import { isSafeCanonicalName } from './util/names';
  *   (api.d.ts line 5697).
  * - `IInstallResult` is `{ instructions: IInstruction[] }` (api.d.ts line 4852).
  *
- * Error/unsupported instruction shape: the spec groups `error` / `unsupported`
- * together as "reject a recognized but invalid layout" with "message data".
- * The grounded Vortex 2.3 source (`InstallManager.ts` lines 4296-4327 and
+ * Error/unsupported instruction shape: the installer emits `error` and
+ * `unsupported` instructions to reject a recognized but invalid layout, each
+ * carrying message data. The grounded Vortex 2.3 source (`InstallManager.ts` lines 4296-4327 and
  * 3922-3967) shows the two have different runtime semantics:
  *
  * - `error` instructions surface `source` as the user-facing message and
@@ -44,7 +44,7 @@ import { isSafeCanonicalName } from './util/names';
  * value: 'fatal' }`. The message is the actionable text the user sees in the
  * Vortex error dialog.
  *
- * DMF dependency rule (spec Section 8.5): every non-DMF install emits one
+ * DMF dependency rule (design.md, Installer, DMF dependency rule): every non-DMF install emits one
  * `rule` instruction with `type: 'after'` referencing DMF by Nexus mod id,
  * so Vortex's `util.sortMods` places DMF before any mod that depends on
  * it. Grounded in the installed `@nexusmods/vortex-api@2.3.0-beta.1` types:
@@ -76,7 +76,7 @@ import { isSafeCanonicalName } from './util/names';
 export const INSTALLER_ID = 'darktide-relay-mod-installer';
 
 /**
- * Installer priority. Spec Section 8 places this within the 21-99
+ * Installer priority. design.md (Installer) places this within the 21-99
  * game-specific range, below FOMOD at priority 20 and above the generic
  * fallback at 100. Smaller number wins among supported installers.
  */
@@ -92,7 +92,7 @@ const FATAL = 'fatal';
 /**
  * Existing installed mods, keyed by Vortex mod ID. The value is the mod's
  * `relayModName` attribute (or `undefined` when the attribute is unset or
- * not a string). Used for duplicate-name detection per spec Section 8.4.
+ * not a string). Used for duplicate-name detection per design.md (Installer, Duplicate canonical names).
  */
 export type ExistingRelayMods = ReadonlyMap<string, string | undefined>;
 
@@ -117,7 +117,7 @@ function attributeInstruction(key: string, value: string): types.IInstruction {
 
 /**
  * Builds a Vortex `rule` instruction declaring an `after` dependency on
- * DMF (spec Section 8.5). Vortex's `util.sortMods` reads `mod.rules` and
+ * DMF (design.md, Installer, DMF dependency rule). Vortex's `util.sortMods` reads `mod.rules` and
  * produces a DAG edge from each rule's reference to the rule-bearing mod,
  * so a mod carrying this rule is sorted to deploy after DMF. The
  * reference uses DMF's Nexus mod id, which matches any installed DMF
@@ -158,14 +158,14 @@ function supportedResult(supported: boolean): types.ISupportedResult {
 }
 
 /**
- * The installer's support test (spec Section 8 "Support test").
+ * The installer's support test (design.md, Installer).
  *
  * Returns `supported: false` for any non-Darktide `gameId`. For Darktide
  * archives, returns `supported: true` if at least one `.mod` entry is
  * present; otherwise `false`. The support test is intentionally permissive
  * about everything except game and `.mod` presence so the user receives
  * actionable error messages from the install function rather than a silent
- * decline (spec Section 8.3).
+ * decline (design.md, Installer, Multiple .mod roots).
  *
  * Pure: no Vortex state access, no side effects.
  *
@@ -188,7 +188,7 @@ export async function testSupported(
 
 /**
  * Returns the fatal-error instructions to emit when an archive contains
- * `.mod` entries in multiple unrelated subtrees (spec Section 8.3). The
+ * `.mod` entries in multiple unrelated subtrees (design.md, Installer, Multiple .mod roots). The
  * listed values are the `.mod` entry paths (the group representatives
  * returned by `groupBySubtreeRoot`), not subtree roots; the wording is
  * precise so the user can find the listed paths in their archive.
@@ -231,8 +231,8 @@ function unsafeNameError(canonicalName: string): types.IInstruction {
 
 /**
  * Returns the fatal-error instruction to emit when the `.mod` basename
- * disagrees with its containing directory (spec Section 8.2 directory
- * agreement rule).
+ * disagrees with its containing directory (design.md, Installer,
+ * Safe-name validation).
  */
 function directoryDisagreementError(modEntryPath: string): types.IInstruction {
   return fatalError(
@@ -245,7 +245,8 @@ function directoryDisagreementError(modEntryPath: string): types.IInstruction {
 
 /**
  * Returns the fatal-error instruction to emit when an existing installed
- * mod already claims the same canonical name (spec Section 8.4). With
+ * mod already claims the same canonical name (design.md, Installer,
+ * Duplicate canonical names). With
  * `mergeMods: true`, two archives normalizing to the same `<name>/...`
  * would clobber each other at deploy time; rejecting at install time
  * surfaces the conflict before deployment.
@@ -303,7 +304,7 @@ function relativeIfInSubtree(file: string, subtreeRoot: string): string | null {
 }
 
 /**
- * The pure core of the install plan (spec Section 8 "Install function").
+ * The pure core of the install plan (design.md, Installer).
  *
  * Given the file list, the game id, and the set of already-installed mods,
  * returns the install result Vortex consumes. No Vortex api access; tests
@@ -321,12 +322,12 @@ function relativeIfInSubtree(file: string, subtreeRoot: string): string | null {
  * 5. Derive the canonical name; reject if the name fails safe-name
  *    validation.
  * 6. Reject if the `.mod` basename disagrees with its containing dir
- *    (spec 8.2 directory-agreement rule).
+ *    (design.md, Installer, Safe-name validation, directory-agreement rule).
  * 7. Reject if an existing installed mod already claims the canonical name
  *    (case-insensitive).
  * 8. Walk files inside the subtree root and emit `copy` instructions. The
  *    destination prefix is always `<canonicalName>/`; the wrapper-ancestor
- *    stripping from spec step 5 is realized implicitly by
+ *    stripping from design.md (Installer, Install plan, step 5) is realized implicitly by
  *    `relativeIfInSubtree`, which drops the subtree-root segments from
  *    each file's path so its remainder is appended to the canonical
  *    prefix. `hasBasenameDirectoryAgreement` (step 6) guarantees the
@@ -334,7 +335,7 @@ function relativeIfInSubtree(file: string, subtreeRoot: string): string | null {
  *    destination for the `.mod` entry resolves to
  *    `<canonicalName>/<canonicalName>.mod` exactly. Emits an
  *    `attribute` instruction persisting `relayModName`, and for non-DMF
- *    mods one `rule` instruction declaring `after DMF` (spec 8.5).
+ *    mods one `rule` instruction declaring `after DMF` (design.md, Installer, DMF dependency rule).
  *
  * @param files archive-relative paths from Vortex.
  * @param gameId the game id Vortex determined for the install.
@@ -392,7 +393,7 @@ export function planInstall(
     return { instructions: [directoryDisagreementError(modEntryPath)] };
   }
 
-  // Duplicate detection across existing installs (spec Section 8.4).
+  // Duplicate detection across existing installs (design.md, Installer, Duplicate canonical names).
   // Case-insensitive: Windows filesystem and Relay's runtime treat names
   // that differ only in case as the same folder.
   const lowerCanonical = canonicalName.toLowerCase();
@@ -442,7 +443,7 @@ export function planInstall(
 
   // Build the final instruction list. Every non-DMF mod also carries an
   // `after DMF` rule so Vortex's sort places DMF first in deployment
-  // order (spec Section 8.5). DMF itself does not get a self-reference.
+  // order (design.md, Installer, DMF dependency rule). DMF itself does not get a self-reference.
   const instructions: types.IInstruction[] = [
     ...copyInstructions,
     attributeInstruction(MOD_ATTRIBUTE_NAME, canonicalName),
@@ -486,7 +487,8 @@ function readExistingRelayMods(api: types.IExtensionApi, gameId: string): Existi
  *
  * The {@link testSupported} function is pure and is re-exported directly.
  * The `install` callback closes over the Vortex `api` so it can read the
- * installed-mods state for duplicate-name detection (spec Section 8.4),
+ * installed-mods state for duplicate-name detection (design.md, Installer,
+ * Duplicate canonical names),
  * which is the only state-aware step in the install plan. All other
  * install logic runs through the pure {@link planInstall} core, which
  * tests call directly without an api.

@@ -93,7 +93,7 @@ describe('relayTool requiredFiles', () => {
 
 describe('relayTool parameters', () => {
   it('emits each flag and value as a separate token (no shell quoting)', () => {
-    // Spec Section 11: Vortex passes parameters as spawn arguments and
+    // design.md (Relay tool): Vortex passes parameters as spawn arguments and
     // strips literal quote characters. Keeping each value its own token
     // avoids the need for any quoting, even when a path contains spaces.
     expect(relayTool.parameters).toEqual([

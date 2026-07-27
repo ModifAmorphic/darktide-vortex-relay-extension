@@ -9,7 +9,7 @@ import { writeAtomic } from '../../src/util/fs';
 /**
  * Each test gets a fresh isolated tmp directory created with
  * `fs.mkdtemp`. This avoids cross-test coupling and matches the
- * per-test isolation described in spec Section 14.
+ * per-test isolation pattern used across the suite.
  */
 let dir: string;
 

@@ -15,7 +15,7 @@
  *   index.js
  *   relay/  (whatever Relay shipped, verbatim)
  *
- * This matches spec Section 15 and the Vortex package guide: Vortex
+ * This matches design.md (Distribution) and the Vortex package guide: Vortex
  * loads built extensions with these files at the archive root. A
  * wrapper directory would make Vortex reject the archive.
  *

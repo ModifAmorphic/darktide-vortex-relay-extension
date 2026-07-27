@@ -92,7 +92,7 @@ describe('game registration object', () => {
   it('exposes getModPaths for the built-in Open Mod Folder action', () => {
     // Vortex's openModFolder handler resolves its target by calling
     // getGame(gameId).getModPaths(discovered.path)[""]. Without getModPaths
-    // the built-in action silently fails for Darktide (spec Section 13).
+    // the built-in action silently fails for Darktide (design.md, User-facing actions).
     expect(typeof game.getModPaths).toBe('function');
   });
 
@@ -110,7 +110,7 @@ describe('game registration object', () => {
   it('getModPaths ignores the discovered game path argument', () => {
     // Vortex calls getModPaths with the discovered install path; the
     // extension-owned mod directory never depends on it (design
-    // invariant, spec Section 1).
+    // invariant; design.md, Design invariants).
     const fromOne = game.getModPaths?.('/first/darktide');
     const fromOther = game.getModPaths?.('/completely/different/darktide');
     expect(fromOne).toEqual(fromOther);
@@ -155,7 +155,7 @@ describe('setupDiscoveredGame', () => {
     const calls = vi.mocked(fs.ensureDirWritableAsync).mock.calls.map((c) => c[0]);
     for (const dir of calls) {
       // Every directory must live under Vortex userData, never inside the
-      // discovered Darktide install (design invariant, spec Section 1).
+      // discovered Darktide install (design invariant; design.md, Design invariants).
       expect(dir.startsWith(FAKE_USER_DATA)).toBe(true);
       expect(dir.startsWith(discoveryPath)).toBe(false);
     }

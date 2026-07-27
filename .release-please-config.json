@@ -2,6 +2,7 @@
   "release-type": "simple",
   "package-name": ".",
   "include-component-in-tag": false,
+  "prerelease": true,
   "changelog-sections": [
     {
       "type": "feat",

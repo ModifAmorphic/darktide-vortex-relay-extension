@@ -1,5 +1,5 @@
 /**
- * mods.lst projection (spec Section 10).
+ * mods.lst projection (design.md).
  *
  * Serializes an ordered list of canonical Darktide mod names to `mods.lst`
  * file content and writes it atomically to the mods content directory
@@ -9,7 +9,7 @@
  *
  * The pure helpers (`serializeModsLst`, `projectModsLst`) have no Vortex
  * imports. The higher-level {@link projectActiveProfileModsLst}
- * orchestrator (spec Section 10.2) wires those helpers to the live
+ * orchestrator (design.md, mods.lst projection, Projection orchestrator) wires those helpers to the live
  * Vortex state and `util.sortMods`. It is invoked from the `did-deploy`
  * and `profile-did-change` event handlers registered in `./index.ts`;
  * the Relay start hook calls {@link projectAndValidateModsLst}, which
@@ -46,7 +46,7 @@ const MODS_LST_LINE_ENDING = '\r\n';
  * Pure projection: serializes an ordered list of canonical Darktide mod
  * names to `mods.lst` file content.
  *
- * Format (spec Section 10):
+ * Format (design.md, mods.lst projection):
  *
  * - one canonical name per line;
  * - CRLF line endings;
@@ -86,7 +86,7 @@ export async function projectModsLst(
 
 /**
  * Projects the active profile's enabled mods to
- * `<modsContentDir>/mods.lst` (spec Section 10.2), ordering them via
+ * `<modsContentDir>/mods.lst` (design.md, mods.lst projection, Projection orchestrator), ordering them via
  * Vortex's built-in `util.sortMods`.
  *
  * Steps:
@@ -94,7 +94,7 @@ export async function projectModsLst(
  * 1. Reads the active profile via `selectors.activeProfile`. Returns
  *    silently when there is no active profile or the active profile does
  *    not belong to this game, so a non-Darktide active game receives no
- *    side effect (spec Section 5).
+ *    side effect (design.md, Extension entry).
  * 2. Reads installed mods for the Darktide game id via
  *    `selectors.modsForGame`.
  * 3. Filters to mods that are profile-enabled in the active profile's
@@ -231,8 +231,8 @@ async function resolveActiveProfileProjection(
 }
 
 /**
- * A single projected mod that failed launch-time validation (spec
- * Section 12 hard check 4). `reason` is the actionable text the start
+ * A single projected mod that failed launch-time validation (design.md,
+ * Launch guard, Hard checks). `reason` is the actionable text the start
  * hook surfaces through the Vortex error dialog.
  */
 export interface ProjectionProblem {
@@ -248,9 +248,8 @@ export interface ProjectionProblem {
  * Outcome of {@link projectAndValidateModsLst}. The deploy and
  * profile-change handlers ignore `problems` and only need the write to
  * happen; the Relay start hook treats `ok === false` as a launch-
- * blocking error (spec Section 12 hard check 4) and consumes `names`
- * for the DMF soft-warning position check (spec Section 12 soft warning
- * 5).
+ * blocking error (design.md, Launch guard, Hard checks) and consumes `names`
+ * for the DMF soft-warning position check (design.md, Launch guard, Soft warning).
  */
 export interface ProjectionResult {
   /**
@@ -276,9 +275,9 @@ export interface ProjectionResult {
 /**
  * Projects the active profile's enabled mods to
  * `<modsContentDir>/mods.lst` and validates the result against the
- * projected names (spec Section 12 hard check 4).
+ * projected names (design.md, Launch guard, Hard checks).
  *
- * Validation set (spec Section 12 hard check 4):
+ * Validation set (design.md, Launch guard, Hard checks):
  *
  * - no duplicate `relayModName` values (case-insensitive);
  * - no `relayModName` contains path separators or traversal components;
@@ -295,8 +294,8 @@ export interface ProjectionResult {
  *
  * Returns `ok: true` when there is no active profile or the active
  * profile belongs to a different game; the start hook treats the
- * absence of Darktide state as a separate hard check (spec Section 12
- * hard check 1) so this function only reports problems it can detect
+ * absence of Darktide state as a separate hard check (design.md, Launch
+ * guard, Hard checks) so this function only reports problems it can detect
  * from the projected names themselves.
  *
  * @param api the Vortex extension api.
@@ -319,7 +318,7 @@ export async function projectAndValidateModsLst(
  * exported separately so unit tests cover every rule directly without
  * a Vortex api or filesystem.
  *
- * Rules (spec Section 12 hard check 4):
+ * Rules (design.md, Launch guard, Hard checks):
  *
  * - duplicate names (case-insensitive);
  * - names that fail safe-name validation (separators, traversal,
@@ -373,7 +372,7 @@ export function validateProjectedNames(names: readonly string[]): ProjectionProb
 
 /**
  * Indicates whether DMF is the first name in the projected list (the
- * soft-warning condition, spec Section 12 soft warning 5). Pure helper
+ * soft-warning condition, design.md, Launch guard, Soft warning). Pure helper
  * used by the start hook so the DMF-position logic is unit-testable
  * without an api.
  *

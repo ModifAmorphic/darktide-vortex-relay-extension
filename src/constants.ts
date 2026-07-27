@@ -3,7 +3,7 @@
  * extension.
  *
  * Grounded identifiers come from `docs/reference/vortex-extension-development.md`
- * Section 5 and `docs/architecture/extension-spec.md` Section 6. The internal
+ * Section 5 and `docs/architecture/design.md` (Game registration). The internal
  * game ID is deliberately distinct from the Nexus domain; the Nexus association
  * is wired through `NEXUS_PAGE_ID` via `details.nexusPageId`.
  *
@@ -21,7 +21,7 @@ export const GAME_NAME = 'Warhammer 40,000: Darktide';
 /**
  * Nexus domain / `nexusPageId`. Maps the internal game ID to Nexus download
  * metadata and NXM link routing. Must be proven with a real
- * "Download with Manager" link (spec Section 16, Game registration).
+ * "Download with Manager" link (design.md, Game registration).
  */
 export const NEXUS_PAGE_ID = 'warhammer40kdarktide';
 
@@ -60,8 +60,8 @@ export const DEPLOY_DIR_NAME = 'deploy';
 
 /**
  * Subdirectory under {@link MOD_ROOT_DIR_NAME} reserved for per-profile
- * load-order state. Currently unused: the sort-based projection (spec
- * Section 9) does not write here. `setup` still creates the directory
+ * load-order state. Currently unused: the sort-based projection (design.md,
+ * Mod ordering) does not write here. `setup` still creates the directory
  * so it is ready if a future revision restores per-profile persistence.
  */
 export const LOAD_ORDER_DIR_NAME = 'load-order';
@@ -117,7 +117,7 @@ export const RELAY_EXECUTABLE = 'mod_relay.exe';
 /**
  * Filename of the warn-once flag file that suppresses the DMF-absent /
  * DMF-misordered launch warning after it has fired once on a Vortex
- * install (spec Section 12, soft warning). Stored under the extension's
+ * install (design.md, Launch guard, Soft warning). Stored under the extension's
  * mod root, not the deploy dir, so purge/deploy cycles do not clear it.
  */
 export const DMF_WARNING_FILE_NAME = '.dmf-warning-state.json';

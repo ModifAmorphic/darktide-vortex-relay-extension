@@ -107,8 +107,8 @@ describe('extension entry', () => {
 
   it('registers the two user-facing open-directory actions via registerAction', () => {
     // The Open Relay log directory and Open Darktide console-log
-    // directory actions both ride through registerAction (spec Section
-    // 13). Open Mod Folder and Launch modded are Vortex built-ins and
+    // directory actions both ride through registerAction (design.md,
+    // User-facing actions). Open Mod Folder and Launch modded are Vortex built-ins and
     // are NOT registered here.
     const ctx = stubContext();
     main(ctx);

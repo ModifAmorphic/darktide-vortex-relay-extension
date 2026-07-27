@@ -813,7 +813,7 @@ describe('start hook: rejection mechanism', () => {
 
   it('rejects with a ProcessCanceled instance so Vortex surfaces it cleanly', async () => {
     // No relay runtime: hard check 2 fails. The hook must throw a
-    // ProcessCanceled (per spec Section 12 outcome 6) so Vortex's
+    // ProcessCanceled (per design.md, Launch guard, Outcome) so Vortex's
     // `applyStartHooks` recognizes it as a structured cancellation.
     const hook = createStartHook(stubApi());
     let caught: unknown;
