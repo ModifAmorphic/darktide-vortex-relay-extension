@@ -14,10 +14,8 @@ import {
   DEPLOY_DIR_NAME,
   GAME_ID,
   MOD_ATTRIBUTE_NAME,
-  MOD_LOADER_FILES,
   MOD_ROOT_DIR_NAME,
   RELAY_EXECUTABLE,
-  RELAY_REQUIRED_FILES,
 } from '../src/constants';
 import * as pathsModule from '../src/paths';
 import {
@@ -181,14 +179,15 @@ function profile(modState: Record<string, { enabled: boolean }>): types.IProfile
   } as unknown as types.IProfile;
 }
 
-/** Helper: populate the bundled relay directory with the complete runtime. */
+/**
+ * Helper: populate the bundled relay directory with the launcher binary.
+ * The extension treats Relay as an opaque unit and verifies only that
+ * `mod_relay.exe` is present; the fixture therefore stages only the
+ * launcher, not Relay's internal runtime files.
+ */
 async function writeCompleteRelayRuntime(): Promise<void> {
   await fs.mkdir(relayDirectory, { recursive: true });
-  for (const file of RELAY_REQUIRED_FILES) {
-    const fullPath = path.join(relayDirectory, file);
-    await fs.mkdir(path.dirname(fullPath), { recursive: true });
-    await fs.writeFile(fullPath, 'placeholder');
-  }
+  await fs.writeFile(path.join(relayDirectory, RELAY_EXECUTABLE), 'placeholder');
 }
 
 /** Helper: write the deployed `<name>/<name>.mod` files for the given names. */
@@ -278,34 +277,29 @@ describe('isRelayLaunch filter', () => {
 });
 
 describe('missingRelayFiles', () => {
-  it('returns an empty list when every required file exists', async () => {
+  it('returns an empty list when the launcher exists', async () => {
     await writeCompleteRelayRuntime();
     expect(missingRelayFiles(relayDirectory)).toEqual([]);
   });
 
-  it('returns every required file when the directory does not exist', () => {
-    expect(missingRelayFiles(relayDirectory).sort()).toEqual([...RELAY_REQUIRED_FILES].sort());
+  it('returns the launcher filename when the directory does not exist', () => {
+    expect(missingRelayFiles(relayDirectory)).toEqual([RELAY_EXECUTABLE]);
   });
 
-  it('returns only the missing subset when some files exist', async () => {
-    await writeCompleteRelayRuntime();
-    await fs.unlink(path.join(relayDirectory, 'LICENSE'));
-    expect(missingRelayFiles(relayDirectory)).toEqual(['LICENSE']);
+  it('detects a missing mod_relay.exe', async () => {
+    // Stage the relay directory but omit the launcher binary.
+    await fs.mkdir(relayDirectory, { recursive: true });
+    expect(missingRelayFiles(relayDirectory)).toEqual([RELAY_EXECUTABLE]);
   });
 
-  it('detects missing mod_loader Lua files individually', async () => {
-    await writeCompleteRelayRuntime();
-    await fs.unlink(path.join(relayDirectory, 'mod_loader', 'init.lua'));
-    expect(missingRelayFiles(relayDirectory)).toEqual(['mod_loader/init.lua']);
-  });
-
-  it('reports multiple missing files together', async () => {
-    await writeCompleteRelayRuntime();
-    await fs.unlink(path.join(relayDirectory, 'LICENSE'));
-    await fs.unlink(path.join(relayDirectory, 'THIRD_PARTY_NOTICES.md'));
-    expect(missingRelayFiles(relayDirectory).sort()).toEqual(
-      ['LICENSE', 'THIRD_PARTY_NOTICES.md'].sort(),
-    );
+  it('passes regardless of other Relay runtime files when the launcher exists', async () => {
+    // The extension treats Relay as an opaque unit: the DLL, Lua, and
+    // legal files are irrelevant to this check. Only mod_relay.exe
+    // matters.
+    await fs.mkdir(relayDirectory, { recursive: true });
+    await fs.writeFile(path.join(relayDirectory, RELAY_EXECUTABLE), 'placeholder');
+    // No relay_shell.dll, no mod_loader/, no legal files: still empty.
+    expect(missingRelayFiles(relayDirectory)).toEqual([]);
   });
 });
 
@@ -477,7 +471,7 @@ describe('start hook: hard check 1 (active profile game id)', () => {
   });
 });
 
-describe('start hook: hard check 2 (Relay runtime files)', () => {
+describe('start hook: hard check 2 (Relay launcher)', () => {
   beforeEach(async () => {
     activeProfile = profile({});
     discovery = { path: gameDirectory };
@@ -489,21 +483,22 @@ describe('start hook: hard check 2 (Relay runtime files)', () => {
 
   it('rejects when the relay directory does not exist', async () => {
     const hook = createStartHook(stubApi());
-    await expect(hook(relayCall())).rejects.toThrow(/bundled Relay runtime is incomplete/i);
+    await expect(hook(relayCall())).rejects.toThrow(/bundled Relay launcher/i);
+    await expect(hook(relayCall())).rejects.toThrow(/mod_relay\.exe/);
   });
 
-  it('rejects with the list of missing files', async () => {
-    await writeCompleteRelayRuntime();
-    await fs.unlink(path.join(relayDirectory, 'LICENSE'));
-    await fs.unlink(path.join(relayDirectory, 'mod_loader', 'init.lua'));
+  it('rejects when mod_relay.exe is absent', async () => {
+    // Stage the relay directory but omit the launcher binary. The check
+    // verifies only mod_relay.exe; Relay's internal runtime files are
+    // not enumerated.
+    await fs.mkdir(relayDirectory, { recursive: true });
     const hook = createStartHook(stubApi());
     const promise = hook(relayCall());
-    await expect(promise).rejects.toThrow(/bundled Relay runtime is incomplete/i);
-    await expect(promise).rejects.toThrow(/LICENSE/);
-    await expect(promise).rejects.toThrow(/mod_loader\/init.lua/);
+    await expect(promise).rejects.toThrow(/bundled Relay launcher/i);
+    await expect(promise).rejects.toThrow(/mod_relay\.exe/);
   });
 
-  it('proceeds past hard check 2 when every required file exists', async () => {
+  it('proceeds past hard check 2 when the launcher exists', async () => {
     await writeCompleteRelayRuntime();
     const hook = createStartHook(stubApi());
     await expect(hook(relayCall())).resolves.toBeDefined();
@@ -828,15 +823,15 @@ describe('start hook: rejection mechanism', () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(util.ProcessCanceled);
-    expect((caught as Error).message).toMatch(/bundled Relay runtime is incomplete/i);
+    expect((caught as Error).message).toMatch(/bundled Relay launcher/i);
   });
 
   it('produces a distinct message per failed hard check', async () => {
     const hook = createStartHook(stubApi());
-    // Hard check 2: relay directory missing.
-    await expect(hook(relayCall())).rejects.toThrow(/bundled Relay runtime is incomplete/i);
+    // Hard check 2: relay launcher missing.
+    await expect(hook(relayCall())).rejects.toThrow(/bundled Relay launcher/i);
 
-    // Hard check 3: relay runtime present, but the discovered binary is
+    // Hard check 3: relay launcher present, but the discovered binary is
     // missing.
     await writeCompleteRelayRuntime();
     await fs.unlink(path.join(gameDirectory, 'binaries', 'Darktide.exe'));
@@ -848,16 +843,5 @@ describe('start hook: rejection mechanism', () => {
     modsForDarktide = { dmf: mod('dmf', 'dmf') };
     activeProfile = profile({ dmf: { enabled: true } });
     await expect(hook(relayCall())).rejects.toThrow(/missing their deployed .mod file/i);
-  });
-});
-
-describe('MOD_LOADER_FILES sanity', () => {
-  it('matches the seven Lua files referenced by RELAY_REQUIRED_FILES', () => {
-    for (const lua of MOD_LOADER_FILES) {
-      expect(RELAY_REQUIRED_FILES).toContain(`mod_loader/${lua}`);
-    }
-    expect(MOD_LOADER_FILES.length).toBe(7);
-    // exe + dll + 7 lua + 2 legal = 11.
-    expect(RELAY_REQUIRED_FILES.length).toBe(MOD_LOADER_FILES.length + 4);
   });
 });

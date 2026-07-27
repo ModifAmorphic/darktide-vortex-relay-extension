@@ -103,61 +103,16 @@ export const RELAY_TOOL_NAME = 'Mod Relay';
 /** Short name (Vortex shows this when space is tight; keep below 8 chars). */
 export const RELAY_TOOL_SHORT_NAME = 'Relay';
 
-/** Relay launcher executable filename, beside which `relay_shell.dll` lives. */
+/**
+ * The Relay launcher binary, the only Relay filename the extension
+ * names. The extension bundles the Mod Relay runtime as an opaque unit
+ * beside the built `index.js`; Relay's internal runtime layout (DLL,
+ * `mod_loader` Lua files, legal files) is Relay's concern and the
+ * extension does not inspect or enumerate it. Consumers that need a
+ * one-element list inline `[RELAY_EXECUTABLE]` rather than referencing
+ * a shared array constant.
+ */
 export const RELAY_EXECUTABLE = 'mod_relay.exe';
-
-/**
- * Quick-discovery subset of required Relay runtime files. Vortex's
- * discovery only needs enough files to uniquely identify the tool
- * directory; the start hook (spec Section 12, hard check 2) verifies
- * the complete set with {@link RELAY_REQUIRED_FILES}.
- *
- * Listed in `ITool.requiredFiles` so Vortex's discovery picks the
- * bundled Relay directory and rejects look-alikes.
- */
-export const RELAY_DISCOVERY_FILES: readonly string[] = [
-  RELAY_EXECUTABLE,
-  'relay_shell.dll',
-  'mod_loader/init.lua',
-  'mod_loader/file.lua',
-  'mod_loader/mod_manager.lua',
-  'LICENSE',
-  'THIRD_PARTY_NOTICES.md',
-] as const;
-
-/**
- * The seven `mod_loader/` Lua files every Relay runtime ships. The start
- * hook verifies each exists beside the launcher (spec Section 12, hard
- * check 2). The list is grounded in Relay's published runtime layout
- * (reference doc Section 2).
- */
-export const MOD_LOADER_FILES: readonly string[] = [
-  'init.lua',
-  'file.lua',
-  'class_registry.lua',
-  'require_bridge.lua',
-  'lifecycle.lua',
-  'mod_manager.lua',
-  'dmf_adapter.lua',
-] as const;
-
-/**
- * Full list of required Relay runtime files. Combines the EXE, DLL, every
- * `mod_loader/` Lua file, and the two legal files. The start hook's hard
- * check 2 verifies every entry exists in the bundled relay directory.
- *
- * The legal files (`LICENSE`, `THIRD_PARTY_NOTICES.md`) are non-negotiable
- * per spec Section 11 and reference doc Section 11: every distributed
- * Relay bundle must include Relay's GPL-3.0 LICENSE and the third-party
- * notices for statically linked MinHook and Capstone.
- */
-export const RELAY_REQUIRED_FILES: readonly string[] = [
-  RELAY_EXECUTABLE,
-  'relay_shell.dll',
-  ...MOD_LOADER_FILES.map((name) => `mod_loader/${name}`),
-  'LICENSE',
-  'THIRD_PARTY_NOTICES.md',
-] as const;
 
 /**
  * Filename of the warn-once flag file that suppresses the DMF-absent /

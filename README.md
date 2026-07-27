@@ -4,13 +4,16 @@ An unofficial Vortex extension for Warhammer 40,000: Darktide.
 
 ## Status
 
-Working implementation through step 6 of the spec. Darktide game registration,
+Working implementation through step 7 of the spec. Darktide game registration,
 the `.mod` archive installer (with auto DMF dependency rules), sortMods-based
-`mods.lst` projection, the Relay tool registration, tool variables, and the
-launch guard start hook are all in place and verified. User-facing actions,
-Relay runtime bundling, and the release archive are still to come; see
-`docs/architecture/extension-spec.md` Section 17 for the implementation
-order.
+`mods.lst` projection, the Relay tool registration, tool variables, the
+launch guard start hook, and user-facing open-directory actions are all in place
+and verified. User-facing actions are pending operator Vortex render verification.
+The Relay bundling (`pnpm bundle:relay`) and release-archive packaging
+(`pnpm package`) scripts have landed, and the GitHub release pipeline
+(release-please + build/bundle/package/upload on push to main) is in place.
+No release has been cut yet. See `docs/architecture/extension-spec.md`
+Section 17 for the implementation order.
 
 ## Development
 

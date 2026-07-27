@@ -15,8 +15,11 @@
  * Hard checks (reject on failure, spec Section 12):
  *
  * 1. Active profile belongs to the Darktide game.
- * 2. Every required Relay runtime file exists in the bundled relay
- *    directory.
+ * 2. The bundled Relay launcher (`mod_relay.exe`) exists in the bundled
+ *    relay directory. The extension does not enumerate Relay's internal
+ *    runtime files (DLL, `mod_loader` Lua, legal files); that layout is
+ *    Relay's concern, and any further runtime failure is surfaced by
+ *    Relay at launch.
  * 3. The discovered Darktide binary exists on disk.
  * 4. `mods.lst` regeneration succeeds and the projected list validates
  *    (duplicates, separators, safe-name, deployed `.mod` files present).
@@ -86,7 +89,6 @@ import {
   GAME_ID,
   MOD_ATTRIBUTE_NAME,
   RELAY_EXECUTABLE,
-  RELAY_REQUIRED_FILES,
 } from './constants';
 import { isDmfFirst, projectAndValidateModsLst, validateProjectedNames } from './modsLst';
 import type { ProjectionResult } from './modsLst';
@@ -204,16 +206,17 @@ async function runHardChecks(api: types.IExtensionApi): Promise<ProjectionResult
     );
   }
 
-  // Hard check 2: all required Relay runtime files exist.
+  // Hard check 2: the bundled Relay launcher exists. The extension
+  // treats Relay as an opaque unit; it verifies only the binary it
+  // actually invokes and leaves Relay's internal runtime layout (DLL,
+  // mod_loader Lua, legal files) to Relay to surface at launch.
   const relayDirectory = relayDir();
   const missing = missingRelayFiles(relayDirectory);
   if (missing.length > 0) {
     throw new util.ProcessCanceled(
-      'Cannot launch Mod Relay: the bundled Relay runtime is ' +
-        `incomplete. Expected "${relayDirectory}" to contain every required ` +
-        'file, but the following were missing:\n  - ' +
-        missing.join('\n  - ') +
-        '\nReinstall the extension or place a complete Relay runtime in ' +
+      'Cannot launch Mod Relay: the bundled Relay launcher ' +
+        `("${RELAY_EXECUTABLE}") is missing from "${relayDirectory}". ` +
+        'Reinstall the extension or place a complete Relay runtime in ' +
         "the extension's relay/ directory.",
     );
   }
@@ -274,24 +277,22 @@ async function runHardChecks(api: types.IExtensionApi): Promise<ProjectionResult
 }
 
 /**
- * Returns the subset of {@link RELAY_REQUIRED_FILES} that do NOT exist
- * in `directory`. Pure with respect to the directory argument; the
- * filesystem side effect (stat) is inherent to the check.
+ * Verifies the bundled Relay launcher exists in `directory`. Returns an
+ * empty array when `mod_relay.exe` is present, or `[RELAY_EXECUTABLE]`
+ * when it is absent. The extension treats Relay as an opaque unit and
+ * inspects only the launcher binary it actually invokes; Relay's
+ * internal runtime files are not enumerated here (spec Section 11,
+ * Section 12 hard check 2).
  *
- * Exported so unit tests can exercise the multi-file existence check
- * with a temp directory.
+ * Kept as a function (rather than an inline `existsSync`) so the error
+ * message shape stays uniform with the other hard-check helpers and
+ * unit tests can exercise the existence check with a temp directory.
  *
  * @param directory absolute path to the bundled Relay runtime directory.
  */
 export function missingRelayFiles(directory: string): string[] {
-  const missing: string[] = [];
-  for (const rel of RELAY_REQUIRED_FILES) {
-    const fullPath = nodePath.join(directory, rel);
-    if (!existsSync(fullPath)) {
-      missing.push(rel);
-    }
-  }
-  return missing;
+  const fullPath = nodePath.join(directory, RELAY_EXECUTABLE);
+  return existsSync(fullPath) ? [] : [RELAY_EXECUTABLE];
 }
 
 /**

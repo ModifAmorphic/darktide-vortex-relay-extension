@@ -40,9 +40,8 @@ These invariants hold across the extension. Specific sections implement them.
 
 - The extension never writes inside the Darktide installation. Mods deploy
   to a Vortex-managed directory under Vortex userData (Section 7).
-- The extension ships Relay as a pinned, tested runtime inside the archive.
-  One extension install equals one tested Relay runtime set (Section 11,
-  Section 15).
+- The extension ships Relay as a complete runtime inside the archive, bundled
+  at build time from the latest release (Section 11, Section 15).
 - The installer does not special-case DMF for install. DMF is a normal mod
   (Section 8.1).
 - The installer auto-emits an `after DMF` rule for every non-DMF mod so
@@ -133,7 +132,7 @@ eslint.config.<ext>
 .prettierrc
 src/
   index.ts                entry; registers all capabilities
-  constants.ts            game id, nexus domain, attribute names, pinned Relay version
+  constants.ts            game id, nexus domain, attribute names, Relay executable name
   game.ts                 IGame registration and setup
   installer.ts            .mod archive installer (auto-emits after-DMF rule)
   modsLst.ts              mods.lst projection, atomic write, and sortMods orchestrator
@@ -157,21 +156,12 @@ test/
     archives/             synthetic .zip shapes
 scripts/
   build.ts                build dist/index.js
-  bundle-relay.ts         fetch pinned Relay release into relay/
+  bundle-relay.ts         fetch the latest Relay release into relay/
   package.ts              assemble the release archive
-relay/                    vendored at build time, gitignored
-  mod_relay.exe
-  relay_shell.dll
-  mod_loader/
-    init.lua
-    file.lua
-    class_registry.lua
-    require_bridge.lua
-    lifecycle.lua
-    mod_manager.lua
-    dmf_adapter.lua
-  LICENSE
-  THIRD_PARTY_NOTICES.md
+relay/                    vendored at build time, gitignored. Contents are
+  mod_relay.exe             the latest Relay release, shipped verbatim.
+  <other Relay files>     Only mod_relay.exe is named by the extension;
+                          Relay's internal layout is not enumerated.
 docs/
   architecture/
     extension-spec.md     this file
@@ -547,10 +537,12 @@ projection as part of its hard checks.
 
 ## 11. Relay primary tool
 
-The extension ships Relay as a pinned, tested runtime inside the archive. One
-extension install equals one tested Relay runtime set; release coupling
-between the extension and Relay is intentional because the extension exists
-only to drive Relay.
+The extension bundles the current Mod Relay runtime as an opaque unit at build
+time. The only Relay file the extension names is `mod_relay.exe`, the binary
+Vortex launches. Relay's internal runtime layout (the injected DLL, the
+`mod_loader` Lua files, the legal files) is Relay's concern; the extension
+does not inspect or enumerate it, so a Relay release that adds, removes,
+renames, or rearranges internal files cannot break the extension.
 
 Registered as an entry in the Darktide `IGame.supportedTools` array
 (api.d.ts line 4214). Vortex 2.3 has no separate `context.registerTool`
@@ -564,12 +556,11 @@ method; tools ride along with their owning game registration. The
 - `queryPath: () => paths.relayDir()` resolving to the bundled
   `<extensionDir>/relay`.
 - `executable: (base?) => "mod_relay.exe"`.
-- `requiredFiles:` includes `mod_relay.exe`, `relay_shell.dll`,
-  `mod_loader/init.lua`, `mod_loader/file.lua`, `mod_loader/mod_manager.lua`,
-  `LICENSE`, and `THIRD_PARTY_NOTICES.md`. This is a quick-discovery sanity
-  check, not the complete file-set verification. The complete set, including
-  all seven `mod_loader/` Lua files, is verified by the start hook (Section
-  12, hard check 2).
+- `requiredFiles:` includes only `mod_relay.exe`. This is a quick-discovery
+  sanity check that picks the bundled Relay directory and rejects
+  look-alikes. The extension does not enumerate Relay's internal runtime
+  files here or anywhere else; the start hook (Section 12, hard check 2)
+  likewise verifies only the launcher binary.
 - `defaultPrimary: true`.
 - `exclusive: true`.
 - `parameters: ["--game-binary", "{RELAY_GAME_BINARY}", "--mod-path",
@@ -686,11 +677,11 @@ one soft warning (never blocks).
 ### Hard checks (reject on failure)
 
 1. Confirms the active profile belongs to this game.
-2. Confirms `mod_relay.exe`, `relay_shell.dll`, all seven
-   `mod_loader/` Lua files (`init.lua`, `file.lua`, `class_registry.lua`,
-   `require_bridge.lua`, `lifecycle.lua`, `mod_manager.lua`,
-   `dmf_adapter.lua`), `LICENSE`, and `THIRD_PARTY_NOTICES.md` exist in the
-   bundled Relay directory.
+2. Confirms `mod_relay.exe` exists in the bundled Relay directory. Relay's
+   internal runtime layout (DLL, `mod_loader` Lua files, legal files) is
+   Relay's responsibility; the extension verifies only the launcher binary
+   it actually invokes, and any further runtime failure is surfaced by
+   Relay at launch.
 3. Confirms the discovered Darktide binary exists.
 4. Regenerates `mods.lst` via the projection orchestrator (Section 10.2)
    and validates the result against deployed state. The launch-time
@@ -824,18 +815,8 @@ info.json
 gameart.png
 index.js
 relay/
-  mod_relay.exe
-  relay_shell.dll
-  mod_loader/
-    init.lua
-    file.lua
-    class_registry.lua
-    require_bridge.lua
-    lifecycle.lua
-    mod_manager.lua
-    dmf_adapter.lua
-  LICENSE
-  THIRD_PARTY_NOTICES.md
+  mod_relay.exe             the only Relay file the extension names
+  <other Relay runtime files, shipped verbatim>
 ```
 
 Build pipeline:
@@ -845,14 +826,16 @@ Build pipeline:
 3. `pnpm lint`.
 4. `pnpm test`.
 5. `pnpm build` produces `dist/index.js`.
-6. `scripts/bundle-relay.ts` fetches the pinned Relay release into `relay/`
-   and verifies required files plus legal files.
+6. `scripts/bundle-relay.ts` fetches the latest Relay release (pre-release
+   inclusive) into `relay/` and verifies `mod_relay.exe` at the archive root.
 7. `scripts/package.ts` assembles the archive with `info.json`, `gameart.png`,
    `dist/index.js` renamed to `index.js`, and `relay/` at the root.
 
-The pinned Relay version is recorded in `src/constants.ts` and surfaced by a
-`--version` invocation in the integration matrix. Relay updates ship as
-extension releases that bump the pinned version and update the bundle script.
+Relay is not version-pinned: each build of the extension fetches the newest
+non-draft release. Relay ships its own complete, legally-compliant runtime
+(GPL-3.0 `LICENSE` and `THIRD_PARTY_NOTICES.md` travel inside the release
+zip), and the extension redistributes whatever Relay ships verbatim; the only
+file the extension gates on is `mod_relay.exe`.
 
 Installation instructions document manual extraction to
 `%APPDATA%\Vortex\Plugins` and a Vortex restart.
@@ -924,8 +907,10 @@ and qa work against.
 
 - The release archive has `info.json`, `gameart.png`, `index.js`, and
   `relay/` at its root.
-- `relay/` contains the EXE, DLL, `mod_loader/` Lua files, `LICENSE`, and
-  `THIRD_PARTY_NOTICES.md`.
+- `relay/` contains the bundled Relay runtime. The extension gates on
+  `mod_relay.exe` only; Relay's internal layout (DLL, `mod_loader/` Lua,
+  legal files) is Relay's concern and is not enumerated as an acceptance
+  criterion.
 - Manual installation to `%APPDATA%\Vortex\Plugins` and a Vortex restart
   loads the extension.
 
@@ -946,8 +931,6 @@ core path works.
 7. User-facing actions.
 8. Bundle Relay via `scripts/bundle-relay.ts`. Package via
    `scripts/package.ts`.
-9. Integration matrix on a clean Windows machine.
-10. Documentation polish and GitHub release.
 
 Each step is one or more coder tasks handed off with the relevant section of
 this spec as the contract.
