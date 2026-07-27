@@ -215,7 +215,11 @@ Capabilities registered in the entry function:
 - `context.registerInstaller(id, priority, testSupported, install)`.
 - `context.registerToolVariables(callback)`.
 - `context.registerStartHook(priority, id, hook)`.
-- `context.registerAction(...)` for each user-facing action.
+- `context.registerAction(...)` for each custom user-facing action; the
+  custom actions render on the Games tab Darktide tile (Section 13). The
+  remaining user-facing capabilities are Vortex built-ins configured via
+  the game and tool registrations, which Vortex surfaces on the
+  managed-game dashboard and on the Games tab tile.
 
 The extension does NOT call `context.registerLoadOrder`. Vortex's built-in
 mod sort and mod-details rule editor handle ordering (Section 9).
@@ -737,16 +741,35 @@ check produces a distinct message so the user can act on it.
 
 ## 13. User-facing actions
 
-Registered via `context.registerAction(...)`. Each appears in the appropriate
-Vortex action context.
+Four user-facing capabilities are exposed for Darktide. Two are Vortex
+built-ins, configured indirectly through the game and tool registrations
+rather than via `context.registerAction`; Vortex surfaces them on the
+managed-game dashboard toolbar (for daily use) and on the Games tab
+Darktide tile. The other two are custom actions the extension registers
+on the `game-managed-buttons` action group; they render only on the
+Games tab Darktide tile, in the Open submenu behind the tile's vertical
+"..." kebab button, alongside Vortex's built-in Open Game Folder and
+Open Mod Folder actions. They do not appear on the active-game dashboard,
+whose toolbar is a hardcoded Vortex component no `registerAction` group
+can extend.
 
-- **Launch modded with Mod Relay**: triggers the primary tool. Largely
-  Vortex's built-in primary-tool launch action.
-- **Open Relay mod directory**: opens `paths.deployDir()` in the file explorer.
-- **Open Relay log**: opens the directory containing `relay.log` (beside the
-  bundled Relay launcher).
-- **Open Darktide console-log directory**: opens
-  `%APPDATA%\Fatshark\Darktide\console_logs\` if it exists.
+- **Launch modded with Mod Relay**: Vortex's built-in primary-tool launch.
+  The Relay tool is registered with `defaultPrimary: true` (Section 11), so
+  Vortex's standard Play action launches Relay.
+- **Open Relay mod directory**: Vortex's built-in "Open Mod Folder" action.
+  `game.getModPaths` returns `{ '': paths.modsContentDir(...) }`, so the
+  built-in action opens `modsContentDir`, the directory that holds the
+  deployed `<name>/<name>.mod` trees and `mods.lst`. This is deliberate
+  over `deployDir` (Relay's `--mod-path` target), which contains only the
+  `mods/` child and is not what the user means by "the mod folder."
+- **Open Relay log directory**: a custom action that opens
+  `paths.relayDir()` via `util.opn` (the bundled Relay runtime directory
+  where `relay.log` is written beside the launcher).
+- **Open Darktide console-log directory**: a custom action that opens
+  `%APPDATA%\Fatshark\Darktide\console_logs\` via `util.opn` when it
+  exists. When Darktide has not yet generated console logs (the directory
+  is missing), the action surfaces a non-blocking `info` notification
+  instead of opening Explorer on a nonexistent path.
 
 Documentation calls out that Steam launch remains vanilla and that Relay's C
 log and Darktide's Lua, DMF, and mod output are separate logs.

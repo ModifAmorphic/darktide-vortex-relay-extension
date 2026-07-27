@@ -173,3 +173,13 @@ export const DMF_WARNING_FILE_NAME = '.dmf-warning-state.json';
  * migrate older versions.
  */
 export const DMF_WARNING_FILE_VERSION = 1;
+
+/**
+ * Path segments from `%APPDATA%` to the Darktide console-log directory.
+ * Verified against the upstream Fatshark convention
+ * (`%APPDATA%\Fatshark\Darktide\console_logs\`) and the reference doc
+ * Section 10. The underscore is intentional: it is `console_logs`, not
+ * `console-logs`. Consumed by the console-log open-directory action in
+ * `./actions.ts`.
+ */
+export const CONSOLE_LOGS_DIR_SEGMENTS = ['Fatshark', 'Darktide', 'console_logs'] as const;

@@ -83,6 +83,18 @@ export async function setupDiscoveredGame(discovery: types.IDiscoveryResult): Pr
  * line 4214). Vortex discovers the tool from this list and surfaces it in
  * the launch UI.
  *
+ * `getModPaths` returns the same `modsContentDir` for the default mod type
+ * (`''`). Vortex's built-in "Open Mod Folder" dashboard action
+ * (`openModFolder` in the renderer) resolves its target by calling
+ * `getGame(gameId).getModPaths(discovered.path)[""]`. Without `getModPaths`
+ * defined, that action silently fails for Darktide, so this is what makes
+ * the built-in action work (spec Section 13). The empty-string key is the
+ * default mod type, and returning `modsContentDir` (NOT `deployDir`) is
+ * deliberate: `modsContentDir` is the directory that actually contains the
+ * deployed mod folders and `mods.lst`, and it is the same value
+ * `queryModPath` returns. Returning `deployDir` (the `--mod-path` parent)
+ * would open the wrong directory for the user.
+ *
  * `environment` is deliberately unset: Relay publishes its own Steam child
  * environment when it launches, and the game registration's environment does
  * not automatically reach a separately registered tool (reference doc
@@ -94,6 +106,14 @@ export const game: types.IGame = {
   executable: () => GAME_EXECUTABLE,
   requiredFiles: [...GAME_REQUIRED_FILES],
   queryModPath: () => paths.modsContentDir(util.getVortexPath('userData')),
+  // Vortex's built-in "Open Mod Folder" action reads
+  // `getModPaths(discovered.path)[""]`. Returning `modsContentDir` (the
+  // directory that holds the deployed mod trees and `mods.lst`, matching
+  // `queryModPath`) makes that action open the right directory for the
+  // user. See the object-level doc comment for the full rationale.
+  getModPaths: (_gamePath: string) => ({
+    '': paths.modsContentDir(util.getVortexPath('userData')),
+  }),
   // The installed IGame type declares setup as returning the Bluebird-based
   // `Promise_2<void>`, but modern `async` returns a native `Promise<void>`.
   // Vortex awaits any thenable at runtime, so this cast only bridges the

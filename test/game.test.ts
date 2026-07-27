@@ -89,6 +89,41 @@ describe('game registration object', () => {
     expect(fromOne).toBe(EXPECTED_MODS_CONTENT_DIR);
   });
 
+  it('exposes getModPaths for the built-in Open Mod Folder action', () => {
+    // Vortex's openModFolder handler resolves its target by calling
+    // getGame(gameId).getModPaths(discovered.path)[""]. Without getModPaths
+    // the built-in action silently fails for Darktide (spec Section 13).
+    expect(typeof game.getModPaths).toBe('function');
+  });
+
+  it("returns modsContentDir for getModPaths['']", () => {
+    // The empty-string key is the default mod type. Returning
+    // modsContentDir (the directory that holds the deployed mod trees and
+    // mods.lst, matching queryModPath) makes the built-in Open Mod Folder
+    // action open the right directory. Returning deployDir (the
+    // --mod-path parent) would open the wrong directory.
+    const result = game.getModPaths?.('/discovered/darktide');
+    expect(result).toBeDefined();
+    expect(result!['']).toBe(EXPECTED_MODS_CONTENT_DIR);
+  });
+
+  it('getModPaths ignores the discovered game path argument', () => {
+    // Vortex calls getModPaths with the discovered install path; the
+    // extension-owned mod directory never depends on it (design
+    // invariant, spec Section 1).
+    const fromOne = game.getModPaths?.('/first/darktide');
+    const fromOther = game.getModPaths?.('/completely/different/darktide');
+    expect(fromOne).toEqual(fromOther);
+    expect(fromOne!['']).toBe(EXPECTED_MODS_CONTENT_DIR);
+  });
+
+  it('matches queryModPath exactly (single source of truth for the mod dir)', () => {
+    // getModPaths[''] and queryModPath must agree: both are the directory
+    // Vortex deploys each mod tree into. Drift would mean the user opens
+    // a different folder than the one their mods are deployed to.
+    expect(game.getModPaths?.('any')!['']).toBe(game.queryModPath('any'));
+  });
+
   it('exposes setupDiscoveredGame as the setup callback', () => {
     expect(game.setup).toBe(setupDiscoveredGame);
   });

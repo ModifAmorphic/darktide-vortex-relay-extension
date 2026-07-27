@@ -347,14 +347,109 @@ F. No Darktide install directory writes.
      warning flag) or `%APPDATA%\Vortex\Plugins\darktide-relay\relay\`
      (the bundled runtime and its `relay.log`).
 
+### Step 7: User-facing open-directory actions
+
+Verifies the two custom open-directory actions plus the `getModPaths`
+change that enables Vortex's built-in "Open Mod Folder".
+
+Custom actions render on the Games tab Darktide tile, in the Open
+submenu behind the tile's vertical "..." kebab button (Games tab, then
+the Darktide tile, then "...", then Open). They register on the
+`game-managed-buttons` group, the same group that carries Vortex's own
+Open Game Folder, Open Mod Folder, Open Nexus Page, Manually Set
+Location, and Stop Managing actions. They are gated on the game id, so
+they do not appear on other games' tiles.
+
+Setup:
+
+1. `pnpm dev:install --target "$env:APPDATA\Vortex\Plugins"` and restart
+   Vortex.
+2. Manage Darktide if it is not already managed.
+
+A. Two custom actions appear under the Games tab Darktide tile.
+
+   - On the Games tab, click the Darktide tile's vertical "..."
+     kebab button, then click Open.
+   - "Open Relay log directory" sits alongside Vortex's built-in
+     actions (position 200 in the group).
+   - "Open Darktide console-log directory" sits next to it
+     (position 210).
+   - Both icons are the same Material icon Vortex uses for its
+     built-in open-folder actions.
+
+B. Open Relay log directory opens the bundled Relay runtime directory.
+
+   - Click the action.
+   - Expected: Explorer opens
+     `%APPDATA%\Vortex\Plugins\darktide-relay\relay\`, which is where
+     `relay.log` is written beside the launcher. If `relay.log` is
+     present, Relay has run at least once on this install.
+
+C. Open Darktide console-log directory opens the console-log folder when
+   it exists.
+
+   - Click the action after Darktide has been launched at least once
+     (modded or vanilla).
+   - Expected: Explorer opens
+     `%APPDATA%\Fatshark\Darktide\console_logs\`, which contains
+     `console-*.log` files with `[mod_loader]`, DMF, and user-mod
+     output.
+
+D. Open Darktide console-log directory surfaces a notification when
+   Darktide has never been launched.
+
+   - On a machine or user profile where Darktide has not generated
+     console logs (delete `%APPDATA%\Fatshark\Darktide\console_logs\`
+     to reproduce), click the action.
+   - Expected: no Explorer window opens; a non-blocking info
+     notification appears with the text
+     "Darktide has not generated console logs yet. Launch Darktide
+     once to create them."
+
+E. Vortex's built-in "Open Mod Folder" opens the deployed-mods
+   directory.
+
+   - This is a Vortex built-in action that previously did nothing for
+     Darktide; it now works because the game registration defines
+     `getModPaths` returning `modsContentDir`.
+   - Click Open Game Mods Folder in the active-game dashboard
+     toolbar's Open menu.
+   - Expected: Explorer opens
+     `%APPDATA%\Vortex\warhammer40kdarktide-relay\deploy\mods\`, which
+     is where Vortex deploys each mod tree (`<name>\<name>.mod` and
+     siblings) and where `mods.lst` is projected.
+
+F. Actions do not render on other games' tiles.
+
+   - Switch to a different game's tile on the Games tab in Vortex.
+   - Expected: the two custom actions do not appear. The condition
+     `instanceIds[0] === GAME_ID` gates them to the Darktide tile
+     only.
+
+G. "Launch modded with Mod Relay" remains Vortex's built-in primary-tool
+   launch.
+
+   - The Play button still launches the primary tool (Mod Relay). No
+     custom duplicate is registered.
+
+H. No Darktide install directory writes.
+
+   - Darktide install directory has no new files at any point during
+     these checks. Everything the actions touch lives under
+     `%APPDATA%\Vortex\Plugins\darktide-relay\relay\` (bundled
+     runtime, `relay.log`) or
+     `%APPDATA%\Fatshark\Darktide\console_logs\` (Darktide's own
+     log directory, which the extension reads but does not create).
+
+If the two custom actions do not appear on the Games tab Darktide tile,
+the `ACTION_GROUP` constant in `src/actions.ts` is the one-line fix
+point: the value must be `game-managed-buttons` (the API types accept
+any string for the group parameter; only Vortex's renderer knows the
+valid values).
+
 ### Future steps
 
 Each subsequent implementation step adds a section here when it lands:
 
-- Relay tool and launch guard (step 6): primary tool launches with the
-  right `--game-binary` and `--mod-path`, hard checks pass and fail
-  correctly, DMF warn-once fires at most once.
-- Actions (step 7): Open mod directory, Open Relay log, Open Darktide
-  console-log directory.
 - Full archive assembly and Relay bundling (step 8): distributable archive
   layout.
