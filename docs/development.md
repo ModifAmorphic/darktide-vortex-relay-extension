@@ -37,7 +37,6 @@ src/
   modsLst.ts        mods.lst projection, atomic write, sortMods orchestrator
   relayTool.ts      ITool registration
   toolVariables.ts  registerToolVariables callback
-  startHook.ts      registerStartHook launch guard
   actions.ts        user-facing open-directory actions
   paths.ts          path resolution helpers
   util/

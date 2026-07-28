@@ -11,7 +11,6 @@ import {
   PRIMARY_TOOL_TEST_EVENT,
   PRIMARY_TOOL_TEST_ID,
 } from '../src/primaryTool';
-import { START_HOOK_ID, START_HOOK_PRIORITY } from '../src/startHook';
 
 /**
  * The primary-tool promoter is mocked so the wiring test can assert the
@@ -37,9 +36,9 @@ vi.mock('../src/primaryTool', () => ({
  *
  * The context also exposes an `api` stub since the installer factory closes
  * over `context.api` to read installed-mod state at install time, the tool
- * variables and start hook factories close over `context.api`, and the
- * event handlers registered in `context.once` close over `context.api` for
- * `onAsync`, `events.on`, and `showErrorNotification`.
+ * variables factory closes over `context.api`, and the event handlers
+ * registered in `context.once` close over `context.api` for `onAsync`,
+ * `events.on`, and `showErrorNotification`.
  *
  * Each test resets the recorded calls by building a fresh context.
  */
@@ -61,7 +60,6 @@ function stubContext(): types.IExtensionContext {
     registerGame: vi.fn(),
     registerInstaller: vi.fn(),
     registerToolVariables: vi.fn(),
-    registerStartHook: vi.fn(),
     registerAction: vi.fn(),
     registerTest: vi.fn(),
     once: vi.fn((cb: () => void | PromiseLike<void>) => {
@@ -114,16 +112,6 @@ describe('extension entry', () => {
     expect(ctx.registerToolVariables).toHaveBeenCalledTimes(1);
     const args = vi.mocked(ctx.registerToolVariables).mock.calls[0]!;
     expect(typeof args[0]).toBe('function');
-  });
-
-  it('registers the launch-guard start hook with the spec id and priority', () => {
-    const ctx = stubContext();
-    main(ctx);
-    expect(ctx.registerStartHook).toHaveBeenCalledTimes(1);
-    const args = vi.mocked(ctx.registerStartHook).mock.calls[0]!;
-    expect(args[0]).toBe(START_HOOK_PRIORITY);
-    expect(args[1]).toBe(START_HOOK_ID);
-    expect(typeof args[2]).toBe('function');
   });
 
   it('registers the primary-tool promotion test with the spec id and gamemode-activated event', () => {

@@ -42,15 +42,6 @@ export const util = {
       super('cycle');
     }
   },
-  // ProcessCanceled is the rejection type the start hook throws to cancel
-  // a launch (design.md, Launch guard, Outcome). Mirrors the Vortex 2.3 type
-  // exported via the `util` namespace (api.d.ts lines 7691, 9376).
-  ProcessCanceled: class ProcessCanceled extends Error {
-    constructor(message: string) {
-      super(message);
-      this.name = 'ProcessCanceled';
-    }
-  },
 };
 
 export const fs = {

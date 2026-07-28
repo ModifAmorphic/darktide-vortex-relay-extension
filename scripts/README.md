@@ -226,7 +226,7 @@ If a "Download with Manager" click does not arrive in Vortex at all, the
 `details.nexusPageId` setting in `src/game.ts` is wrong, or another
 Darktide extension is claiming the same Nexus domain.
 
-### Step 6: Relay tool and launch guard
+### Step 6: Relay tool
 
 Verifies the Relay supported-tool registration, the launch-time tool
 variables, and the start hook that validates state and regenerates
@@ -288,26 +288,14 @@ C. Launch attempt with missing Relay files: start hook blocks with a
    - Expected: launch is blocked with a message listing every missing
       file. Restore the file (or reinstall the extension) to proceed.
 
-D. DMF warning fires once when DMF is absent or misordered, then does
-   not re-fire.
-
-   - With at least one non-DMF mod enabled and DMF not enabled (or not
-     first in `mods.lst`), launch Relay.
-   - Expected: a non-blocking info notification about DMF load order
-     fires; `%APPDATA%\Vortex\warhammer40kdarktide-relay\.dmf-warning-state.json`
-     is written.
-   - Launch a second time.
-   - Expected: no notification re-fires. The flag file persists across
-     Vortex restarts; deleting it re-arms the warning.
-
-E. `<deployDir>\mods\mods.lst` is regenerated before launch.
+E. `<deployDir>\mods\mods.lst` is written on deploy.
 
    - Delete or hand-edit
      `%APPDATA%\Vortex\warhammer40kdarktide-relay\deploy\mods\mods.lst`,
-     then launch Relay.
-   - Expected: the start hook re-runs the projection; on launch,
-     `mods.lst` reflects the current enabled-mod set in Vortex-sorted
-     order (DMF first when enabled).
+     then deploy mods in Vortex.
+   - Expected: the `did-deploy` handler re-projects `mods.lst` from
+     the active profile's sorted, enabled mods (DMF first when
+     enabled).
 
 F. No Darktide install directory writes.
 

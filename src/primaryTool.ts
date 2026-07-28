@@ -21,9 +21,8 @@
  *
  * The decision is pure ({@link shouldPromotePrimary}); only the thin
  * {@link createPrimaryToolPromoter} factory closes over the Vortex api.
- * The factory pattern mirrors `createInstaller` in `./installer.ts`,
- * `createToolVariablesCallback` in `./toolVariables.ts`, and
- * `createStartHook` in `./startHook.ts`.
+ * The factory pattern mirrors `createInstaller` in `./installer.ts`
+ * and `createToolVariablesCallback` in `./toolVariables.ts`.
  *
  * Version grounding (verified against the installed
  * `@nexusmods/vortex-api@2.3.0-beta.1` types and the v2.3.0/v2.4.0
