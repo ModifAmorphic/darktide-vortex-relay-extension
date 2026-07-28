@@ -1,44 +1,22 @@
 #!/usr/bin/env node
 /**
- * Assembles the distributable Vortex extension archive.
- *
- * Usage:
- *   node scripts/package.ts
- *   node scripts/package.ts --no-build
- *   node scripts/package.ts --out <path-to-zip>
- *   node scripts/package.ts -h
- *
- * The archive root contains, with no wrapper directory:
- *
- *   info.json
- *   gameart.png
- *   index.js
- *   relay/  (whatever Relay shipped, verbatim)
- *
- * This matches design.md (Distribution) and the Vortex package guide: Vortex
- * loads built extensions with these files at the archive root. A
- * wrapper directory would make Vortex reject the archive.
+ * Assembles the distributable Vortex extension archive. The archive root
+ * contains, with no wrapper directory, `info.json`, `gameart.png`,
+ * `index.js`, and `relay/` (whatever Relay shipped, verbatim). Vortex
+ * loads built extensions with these files at the archive root and
+ * rejects archives that nest them under a wrapper directory.
  *
  * The script stages a temp directory with the four inputs, zips it via
- * `Compress-Archive -Path '<stage>/*'` (the `-Path` wildcard form
- * places entries at the archive root), then reads the zip's central
+ * `Compress-Archive -Path '<stage>/*'`, then reads the zip's central
  * directory to verify the root layout, and cleans the staging dir.
  *
- * Execution model: plain TypeScript run directly by Node 24's native
- * type stripping. A scoped `scripts/package.json` declares
- * `"type": "module"` so Node treats `.ts` files here as ES modules and
- * strips type annotations without a compile step. The repo-root
- * `package.json` remains `"type": "commonjs"` for the built extension
- * output. The script resolves its own location via `import.meta.url`,
- * so it works regardless of the caller's working directory.
- *
- * Zip creation and entry listing use Windows PowerShell 5.1's built-in
- * cmdlets and the .NET `System.IO.Compression.ZipFile` type (always
- * present on Windows) via `child_process.execFileSync`. No npm zip
- * dependency is added. The PowerShell I/O is integration-level
- * (validated manually); the version parsing, output-path composition,
- * and root-layout assertion are factored into pure helpers covered by
- * unit tests.
+ * Plain TypeScript run directly by Node 24's native type stripping
+ * (`scripts/package.json` declares `"type": "module"`). Zip creation and
+ * entry listing use Windows PowerShell 5.1's `Compress-Archive` and the
+ * .NET `System.IO.Compression.ZipFile` type. The version parse,
+ * output-path composition, and root-layout assertion are factored into
+ * pure helpers covered by unit tests; the PowerShell I/O is
+ * integration-level.
  */
 
 import { execSync, execFileSync } from 'node:child_process';
@@ -48,13 +26,11 @@ import * as path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 /**
- * Relay launcher executable filename. The single Relay contract this
- * script enforces (the `relay/mod_relay.exe` gate). Inlined (rather
- * than imported from `src/constants`) so the build script has no
- * runtime dependency on product code: Node type-stripping does not
- * resolve extensionless `.ts` imports, and adding `.ts` suffixes would
- * require a tsconfig change. The value is identical to
- * `RELAY_EXECUTABLE` in `src/constants.ts`.
+ * Relay launcher executable filename, and the single Relay contract
+ * this script enforces (the `relay/mod_relay.exe` gate). Inlined
+ * rather than imported from `src/constants`: Node type-stripping does
+ * not resolve extensionless `.ts` imports, and adding `.ts` suffixes
+ * would require a tsconfig change.
  */
 const RELAY_EXECUTABLE = 'mod_relay.exe';
 
@@ -69,10 +45,7 @@ interface Options {
   out: string | null;
 }
 
-/**
- * Error subclass for operator-fixable failures. Carries a clean message
- * without a noisy stack trace, mirroring `bundle-relay.ts`.
- */
+/** Operator-fixable failure with a clean message and no stack trace. */
 class UserError extends Error {
   constructor(message: string) {
     super(message);
@@ -81,13 +54,10 @@ class UserError extends Error {
 }
 
 /**
- * Parses the `version` field out of an `info.json` document. Pure:
- * takes the file text, returns the version string. Exported for unit
- * testing.
- *
- * Throws a {@link UserError} when the text is not valid JSON, is not an
- * object, or lacks a non-empty string `version` field. These are
- * operator-fixable (the manifest is hand-edited).
+ * Parses the `version` field out of an `info.json` document. Exported
+ * for unit testing. Throws a {@link UserError} when the text is not
+ * valid JSON, is not an object, or lacks a non-empty string `version`
+ * field (operator-fixable, since the manifest is hand-edited).
  */
 export function readInfoVersion(infoJsonText: string): string {
   let parsed: unknown;
@@ -106,20 +76,12 @@ export function readInfoVersion(infoJsonText: string): string {
   return version;
 }
 
-/**
- * Composes the default output archive path for a given version and
- * output directory: `<outDir>/<prefix><version>.zip`. Pure: no
- * filesystem access. Exported for unit testing.
- */
+/** Composes the default output archive path: `<outDir>/<prefix><version>.zip`. Exported for unit testing. */
 export function composeArchivePath(version: string, outDir: string): string {
   return path.join(outDir, `${ARCHIVE_NAME_PREFIX}${version}.zip`);
 }
 
-/**
- * The files this script guarantees sit at the archive root. The verify
- * step asserts each is present among the zip's entries (after slash
- * normalization).
- */
+/** The files this script guarantees sit at the archive root. */
 const REQUIRED_ROOT_ENTRIES: readonly string[] = [
   'info.json',
   'gameart.png',
@@ -128,19 +90,13 @@ const REQUIRED_ROOT_ENTRIES: readonly string[] = [
 ];
 
 /**
- * Validates that a list of archive-relative entry paths contains every
- * required root file. Pure: takes the entry list, returns the problems.
- * Exported for unit testing.
- *
- * Entries are normalized so backslash and forward-slash separators both
- * match (PowerShell `Compress-Archive` writes backslashes; standard zip
- * tools write forward slashes). A wrapper directory surfaces here as
- * missing root entries (e.g. `wrapper/info.json` does not match
- * `info.json`), so the basic presence check also rejects wrappers.
- *
- * @param entries archive-relative entry paths (forward or back slashes).
- * @returns empty array when the layout is correct; otherwise a list of
- *   human-readable problem strings.
+ * Validates that `entries` contains every required root file. Exported
+ * for unit testing. Entries are normalized so backslash and
+ * forward-slash separators both match (PowerShell `Compress-Archive`
+ * writes backslashes; standard zip tools write forward slashes). A
+ * wrapper directory surfaces here as missing root entries (e.g.
+ * `wrapper/info.json` does not match `info.json`), so the presence
+ * check also rejects wrappers.
  */
 export function assertArchiveRoot(entries: readonly string[]): string[] {
   const normalized = new Set(
@@ -184,7 +140,6 @@ function parseArgs(argv: readonly string[]): Options {
   return opts;
 }
 
-/** Prints a short usage summary. */
 function printHelp(): void {
   const lines = [
     'Usage: node scripts/package.ts [options]',
@@ -204,7 +159,7 @@ function printHelp(): void {
   console.log(lines.join('\n'));
 }
 
-/** Runs `pnpm build` with output inherited so the operator sees progress. */
+/** Runs `pnpm build` with inherited stdio so the operator sees progress. */
 function runBuild(): void {
   console.log('Building extension via `pnpm build`...');
   execSync('pnpm build', { cwd: REPO_ROOT, stdio: 'inherit' });
@@ -213,8 +168,8 @@ function runBuild(): void {
 
 /**
  * Copies `info.json`, `gameart.png`, `dist/index.js` (as `index.js`),
- * and the `relay/` tree into `stageDir`. The staging directory is the
- * archive root. Throws a {@link UserError} if a source is missing.
+ * and the `relay/` tree into `stageDir` (the archive root). Throws a
+ * {@link UserError} if a source is missing.
  */
 function stageExtension(stageDir: string, indexPath: string, relayDir: string): void {
   const copyFile = (src: string, destName: string): void => {
@@ -233,9 +188,6 @@ function stageExtension(stageDir: string, indexPath: string, relayDir: string): 
   copyFile(indexPath, 'index.js');
 
   try {
-    // recursive:true copies the whole relay/ subtree; force:true
-    // overwrites. The destination is a fresh staging dir, so this is a
-    // clean copy.
     fs.cpSync(relayDir, path.join(stageDir, 'relay'), {
       recursive: true,
       force: true,
@@ -246,11 +198,11 @@ function stageExtension(stageDir: string, indexPath: string, relayDir: string): 
 }
 
 /**
- * Creates the archive via PowerShell `Compress-Archive`. Uses `-Path
- * '<stageDir>/*'` (wildcard form) so entries land at the archive root
- * with no wrapper directory. The `-LiteralPath` form does NOT work here:
- * LiteralPath disables wildcards, so `*` matches no file and the
- * resulting archive is empty (verified on Windows PowerShell 5.1).
+ * Creates the archive via `Compress-Archive -Path '<stageDir>/*'` so
+ * entries land at the archive root with no wrapper directory. The
+ * `-LiteralPath` form does NOT work here: LiteralPath disables
+ * wildcards, so `*` matches no file and the resulting archive is empty.
+ * Do not "simplify" this to LiteralPath.
  */
 function compressArchive(stageDir: string, outZip: string): void {
   const command =
@@ -260,16 +212,15 @@ function compressArchive(stageDir: string, outZip: string): void {
 }
 
 /**
- * Lists the entry paths stored in `zip` via the .NET
- * `System.IO.Compression.ZipFile` type. Returns FullNames exactly as
- * stored (separator style depends on the tool that created the zip);
- * the caller normalizes before comparison.
+ * Lists the entry paths stored in `zip` via .NET
+ * `System.IO.Compression.ZipFile`. Returns FullNames exactly as stored
+ * (separator style depends on the tool that created the zip); the
+ * caller normalizes before comparison.
  */
 function listZipEntries(zip: string): string[] {
   // Add-Type loads the FileSystem facade so ZipFile is callable in
-  // Windows PowerShell 5.1. It is a no-op on later versions where the
-  // type is already loaded; wrap in try/catch so a reload error never
-  // blocks listing.
+  // Windows PowerShell 5.1; it is a no-op on later versions. Wrap in
+  // try/catch so a reload error never blocks listing.
   const command =
     'try { Add-Type -AssemblyName System.IO.Compression.FileSystem } catch {};' +
     ` $z = [System.IO.Compression.ZipFile]::OpenRead(${psQuote(zip)});` +
@@ -282,14 +233,14 @@ function listZipEntries(zip: string): string[] {
     .filter((line) => line.length > 0);
 }
 
-/** Runs a PowerShell command with inherited stdio. Throws on non-zero exit. */
+/** Runs a PowerShell command with inherited stdio. */
 function runPowerShell(command: string): void {
   execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], {
     stdio: 'inherit',
   });
 }
 
-/** Runs a PowerShell command and returns its captured stdout as a string. */
+/** Runs a PowerShell command and returns its captured stdout. */
 function runPowerShellCapture(command: string): string {
   return execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], {
     encoding: 'utf8',
@@ -297,15 +248,13 @@ function runPowerShellCapture(command: string): string {
 }
 
 /**
- * Quotes a path for a PowerShell single-quoted string literal: wraps in
- * single quotes and doubles any embedded single quotes per PowerShell
- * escaping rules.
+ * Wraps `value` in single quotes and doubles any embedded single
+ * quotes per PowerShell escaping rules.
  */
 function psQuote(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
-/** Formats a byte count as a human-readable size string. */
 function formatSize(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) {
     return 'unknown size';
@@ -319,12 +268,6 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-/**
- * Entry point. Optionally builds, checks prerequisites, reads the
- * version, stages the inputs, zips, verifies the root layout, and
- * cleans up. Any thrown {@link UserError} is caught once at the top and
- * reported cleanly.
- */
 function main(): void {
   try {
     const opts = parseArgs(process.argv.slice(2));
@@ -390,10 +333,7 @@ function main(): void {
   }
 }
 
-/**
- * Prints an error message and exits non-zero. {@link UserError} prints
- * the message cleanly; other errors include the stack for debugging.
- */
+/** Prints `UserError` messages cleanly; other errors include the stack. */
 function fail(err: unknown): never {
   if (err instanceof UserError) {
     console.error(`\nError: ${err.message}\n`);

@@ -104,7 +104,6 @@ describe('util/names', () => {
     });
 
     it('deduplicates the same name appearing more than twice', () => {
-      // `a` appears three times; should only be reported once.
       const result = findDuplicateNames(['a', 'A', 'a']);
       expect(result).toEqual(['a']);
     });

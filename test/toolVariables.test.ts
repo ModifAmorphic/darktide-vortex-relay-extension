@@ -9,13 +9,10 @@ import { RELAY_GAME_BINARY_VAR, RELAY_MOD_PATH_VAR } from '../src/relayTool';
 
 /**
  * The ToolParameterCB closes over the Vortex api to read live discovery
- * state at launch time. Tests control `selectors.discoveryByGame` and
- * `util.getVortexPath` via the module-level mock; per-test state is
- * owned by the closures in `beforeEach`.
- *
- * Path-shape assertions use Windows backslashes because the test host
- * is Windows and production runs on Windows. The mod-path value comes
- * from Node's `path.join`, which emits backslashes on Windows.
+ * state at launch time; tests control selectors.discoveryByGame and
+ * util.getVortexPath via the module-level mock, with per-test state
+ * owned by closures in beforeEach. Path assertions assert exact Windows
+ * backslash strings because production and CI run on Windows.
  */
 
 vi.mock('@nexusmods/vortex-api', () => ({
@@ -27,10 +24,8 @@ vi.mock('@nexusmods/vortex-api', () => ({
   },
 }));
 
-/** Per-test userData path; reset in beforeEach. */
 let userData: string;
 
-/** Per-test Darktide discovery result; reset in beforeEach. */
 let discovery: { path?: string } | undefined;
 
 beforeEach(() => {
@@ -42,7 +37,6 @@ beforeEach(() => {
   );
 });
 
-/** Builds a stub api whose getState returns a minimal state object. */
 function stubApi(): types.IExtensionApi {
   return {
     getState: () => ({ persistent: { mods: {} } }),
@@ -101,8 +95,8 @@ describe('createToolVariablesCallback', () => {
   });
 
   it('returns an empty RELAY_GAME_BINARY when Darktide has not been discovered', () => {
-    // Variable resolution never throws; the start hook (not the variable
-    // callback) is responsible for the actionable error path.
+    // Returns '' rather than the garbage relative path path.join would
+    // produce for empty input ('binaries\\Darktide.exe').
     discovery = undefined;
     const cb = createToolVariablesCallback(stubApi());
     const result = cb({ executable: 'x', args: [], options: {} });

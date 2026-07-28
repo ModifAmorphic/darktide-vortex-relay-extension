@@ -6,11 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { writeAtomic } from '../../src/util/fs';
 
-/**
- * Each test gets a fresh isolated tmp directory created with
- * `fs.mkdtemp`. This avoids cross-test coupling and matches the
- * per-test isolation pattern used across the suite.
- */
 let dir: string;
 
 beforeEach(async () => {
@@ -47,10 +42,8 @@ describe('util/fs writeAtomic', () => {
   });
 
   it('cleans up the tmp file and preserves the original when rename fails', async () => {
-    // Drive the rename step to fail by replacing the fs.promises.rename
-    // function with a rejection for the duration of this test. The
-    // implementation imports the same `node:fs/promises` namespace object
-    // (a Node singleton), so the spy is in effect when writeAtomic runs.
+    // Spy on fs.promises.rename (the same node:fs/promises singleton
+    // writeAtomic imports) to drive the rename step to fail.
     const target = path.join(dir, 'target.txt');
     await fs.writeFile(target, 'original');
     const renameSpy = vi
@@ -60,11 +53,9 @@ describe('util/fs writeAtomic', () => {
     try {
       await expect(writeAtomic(target, 'new content')).rejects.toThrow('synthetic rename failure');
 
-      // Tmp file must be cleaned up even though rename failed.
       const entries = await fs.readdir(dir);
       expect(entries).not.toContain('.target.txt.tmp');
 
-      // Original content must be preserved (no partial overwrite).
       const content = await fs.readFile(target, 'utf8');
       expect(content).toBe('original');
     } finally {
@@ -78,8 +69,6 @@ describe('util/fs writeAtomic', () => {
     // throw trying to unlink a non-existent file.
     const target = path.join(dir, 'does-not-exist', 'target.txt');
     await expect(writeAtomic(target, 'hello world')).rejects.toThrow();
-    // No tmp file leaked anywhere observable: the subdir never got
-    // created, so the tmpdir is still empty.
     const entries = await fs.readdir(dir);
     expect(entries).toEqual([]);
   });
@@ -87,8 +76,8 @@ describe('util/fs writeAtomic', () => {
   it('writes content as UTF-8 without BOM', async () => {
     const target = path.join(dir, 'target.txt');
     // Non-ASCII content forces a difference between UTF-8 and the
-    // platform code page; if the helper ever defaults to latin1 or adds a
-    // BOM, the byte comparison fails.
+    // platform code page; if the helper ever defaults to latin1 or adds
+    // a BOM, the byte comparison fails.
     const nonAscii = 'café 世界';
     await writeAtomic(target, nonAscii);
 
@@ -96,7 +85,7 @@ describe('util/fs writeAtomic', () => {
     const expected = Buffer.from(nonAscii, 'utf8');
     expect(bytes.equals(expected)).toBe(true);
 
-    // Defense in depth: the first byte must not be the UTF-8 BOM (0xEF).
+    // Defense in depth: the first byte must not be the UTF-8 BOM.
     expect(bytes[0]).not.toBe(0xef);
   });
 });

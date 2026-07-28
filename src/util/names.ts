@@ -1,40 +1,17 @@
 /**
- * Pure safe-name validation for canonical Darktide mod names.
- *
- * The canonical name is the `<name>` in `<name>/<name>.mod`. Relay constructs
- * a filesystem path directly from this value, so the Vortex installer is the
- * correct boundary at which to reject unsafe values. See design.md (Installer,
- * Safe-name validation)
- * and the reference doc's "Safe names" rule.
- *
- * No Vortex imports, no side effects. Every function here is a pure unit
- * testable seam.
+ * Safe-name validation for canonical Darktide mod names (the `<name>` in
+ * `<name>/<name>.mod`). Relay builds a filesystem path directly from this
+ * value, so the installer is the boundary that rejects unsafe names.
  */
 
-/**
- * Windows drive-letter prefix pattern, e.g. `C:` or `c:`. Used to reject
- * absolute Windows paths such as `C:\foo` or `C:/foo` whose first segment
- * parses as a drive letter followed by a colon.
- */
+/** Windows drive-letter prefix (e.g. `C:`), used to reject drive-absolute names. */
 const WINDOWS_DRIVE_PREFIX = /^[a-zA-Z]:/;
 
 /**
- * Returns `true` if and only if `name` is a safe canonical Darktide mod name
- * per design.md (Installer, Safe-name validation):
- *
- * - non-empty after trimming;
- * - not `.` and not `..`;
- * - contains no `/` and no `\`;
- * - not an absolute or rooted value (reject anything that resolves absolute
- *   on Windows or POSIX, including `C:\foo`, `C:/foo`, `\foo`, `/foo`); and
- * - case-insensitive uniqueness is enforced separately by the installer via
- *   {@link findDuplicateNames}; this function only validates the name shape.
- *
- * Directory-agreement (the `.mod` basename must match its containing
- * directory) is a property of an archive path, not of a name in isolation.
- * That check lives in `archive.ts` (`hasBasenameDirectoryAgreement`).
- *
- * @param name candidate canonical name (the `.mod` basename minus extension).
+ * `true` if `name` is a safe canonical mod name: non-empty (after trim),
+ * not `.` or `..`, no separators, and not absolute or rooted on Windows or
+ * POSIX. Case-insensitive uniqueness is enforced separately by the
+ * installer, not here.
  */
 export function isSafeCanonicalName(name: string): boolean {
   if (typeof name !== 'string') {
@@ -50,10 +27,7 @@ export function isSafeCanonicalName(name: string): boolean {
   if (trimmed.includes('/') || trimmed.includes('\\')) {
     return false;
   }
-  // POSIX absolute: leading `/`. Windows rooted: leading `\` (no drive).
-  // Windows drive-absolute: `C:\...` or `C:/...` (the leading drive prefix
-  // by itself indicates an absolute intent, since the rest is checked by
-  // the separator rule above for the path body).
+  // Reject POSIX-absolute (`/`), Windows-rooted (`\`), and drive-absolute (`C:`) forms.
   const firstChar = trimmed[0];
   if (firstChar === '/' || firstChar === '\\') {
     return false;
@@ -65,21 +39,9 @@ export function isSafeCanonicalName(name: string): boolean {
 }
 
 /**
- * Returns the subset of `names` that appear more than once, compared
- * case-insensitively (Windows filesystem semantics; Relay runs on Windows).
- *
- * Each duplicate is returned as its lowercased form, deduplicated. Names
- * appearing only once are not returned. Used by the installer for both
- * in-archive duplicate detection and cross-mod-state duplicate detection
- * (design.md, Installer, Duplicate canonical names).
- *
- * Examples:
- *
- * - `['a', 'b', 'c']` -> `[]`
- * - `['Foo', 'foo']` -> `['foo']`
- * - `['a', 'A', 'b', 'B', 'c']` -> `['a', 'b']`
- *
- * @param names canonical names to inspect. The input is not mutated.
+ * Returns names that appear more than once, compared case-insensitively
+ * (Windows filesystem semantics). Each duplicate is returned once, in its
+ * lowercased form; names appearing once are omitted.
  */
 export function findDuplicateNames(names: readonly string[]): string[] {
   const counts = new Map<string, number>();

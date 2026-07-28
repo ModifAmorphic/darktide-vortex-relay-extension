@@ -143,8 +143,8 @@ Verifies PR #5 (`feat/mods-lst-projection`).
 
 Ships the pure projection function and atomic write helper. Live
 verification that `mods.lst` is actually written during Vortex use is
-deferred to step 5, when the `did-deploy`, `profile-did-change`, and
-start-hook call sites land. For this step, unit tests are the
+deferred to step 5, when the `did-deploy` and `profile-did-change`
+call sites land. For this step, unit tests are the
 verification:
 
 - `pnpm test` passes (covers `src/modsLst.ts` and `src/util/fs.ts`).
@@ -229,8 +229,8 @@ Darktide extension is claiming the same Nexus domain.
 ### Step 6: Relay tool
 
 Verifies the Relay supported-tool registration, the launch-time tool
-variables, and the start hook that validates state and regenerates
-`mods.lst` immediately before launch.
+variables, and the primary-tool auto-promotion. `mods.lst` is
+regenerated on deploy and profile change (Step 5), not at launch.
 
 The extension ships the Relay runtime as a directory beside the built
 `index.js` (`relay/`). That directory is gitignored and is bundled into the
@@ -247,10 +247,9 @@ Setup:
    (`mod_relay.exe`, `relay_shell.dll`, `mod_loader/`, `LICENSE`,
    `THIRD_PARTY_NOTICES.md`, and whatever else Relay ships).
 
-   The directory is gitignored; never commit Relay binaries. If `relay/` is
-   absent, `pnpm package` fails with a specific error (it gates on
-   `relay/mod_relay.exe`); the start hook also blocks launch until you
-   populate it.
+   The directory is gitignored; never commit Relay binaries. If `relay/`
+   is absent, `pnpm package` fails with a specific error (it gates on
+   `relay/mod_relay.exe`).
 
 2. `pnpm package`, then drop the archive into Vortex and restart
    when prompted.
@@ -264,12 +263,16 @@ A. Relay appears as the primary tool in Vortex.
 
    - In Vortex, with Darktide managed, the Mods page's primary tool
      selector shows "Mod Relay" as the default primary tool.
+   - Vortex 2.3/2.4 ignore `ITool.defaultPrimary`, so the extension
+     promotes Relay itself on game-mode activation (or a deploy) when
+     no primary is set. If Relay is not primary after install,
+     activate the Darktide game mode or trigger a deploy to fire the
+     promoter.
    - Selecting it shows the resolved command line in the tool details
      (if Vortex exposes it): `mod_relay.exe --game-binary
      <RELAY_GAME_BINARY> --mod-path <RELAY_MOD_PATH>`.
 
-B. Launch attempt without mods: start hook runs, passes all hard
-   checks, Relay launches and logs bootstrap OK.
+B. Launch attempt without mods: Relay launches and logs bootstrap OK.
 
    - With no Darktide mods installed (or all disabled), click the
      primary tool launch button.
@@ -279,16 +282,7 @@ B. Launch attempt without mods: start hook runs, passes all hard
       trampoline.
    - Darktide's install directory is unchanged throughout.
 
-C. Launch attempt with missing Relay files: start hook blocks with a
-   specific error.
-
-   - Stop Vortex, delete one required file from the install directory's
-     `relay/` (for example `relay/LICENSE`), and restart Vortex.
-   - Click launch.
-   - Expected: launch is blocked with a message listing every missing
-      file. Restore the file (or reinstall the extension) to proceed.
-
-E. `<deployDir>\mods\mods.lst` is written on deploy.
+C. `<deployDir>\mods\mods.lst` is written on deploy.
 
    - Delete or hand-edit
      `%APPDATA%\Vortex\warhammer40kdarktide-relay\deploy\mods\mods.lst`,
@@ -297,13 +291,13 @@ E. `<deployDir>\mods\mods.lst` is written on deploy.
      the active profile's sorted, enabled mods (DMF first when
      enabled).
 
-F. No Darktide install directory writes.
+D. No Darktide install directory writes.
 
    - Darktide install directory has no new files at any point during
-     these checks. Everything the extension writes lives under
-      `%APPDATA%\Vortex\warhammer40kdarktide-relay\` (mod state,
-      warning flag) or the extension's install directory (the bundled
-      runtime and its `relay.log`).
+      these checks. Everything the extension writes lives under
+      `%APPDATA%\Vortex\warhammer40kdarktide-relay\` (mod state) or
+      the extension's install directory (the bundled runtime and its
+      `relay.log`).
 
 ### Step 7: User-facing open-directory actions
 

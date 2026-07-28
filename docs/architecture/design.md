@@ -320,9 +320,11 @@ A single function projects the active profile's enabled, ordered mods to:
 <deployDir>/mods/mods.lst
 ```
 
-Format: one folder name per line, ending with a single newline. Disabled mods
-are omitted entirely (not emitted as `--` comments), because profile
-enable/disable controls deployment, so a disabled mod is not on disk anyway.
+Format: one folder name per line with CRLF line endings; non-empty content
+ends with a trailing CRLF, and an empty enabled-mods list produces a zero-byte
+file that Relay treats as "no mods load". Disabled mods are omitted entirely
+(not emitted as `--` comments), because profile enable/disable controls
+deployment, so a disabled mod is not on disk anyway.
 
 **Atomic write.** Write a tmp file at `<modsContentDir>/.mods.lst.tmp`, fsync,
 rename to `<modsContentDir>/mods.lst`. On Windows, rename replaces an existing
@@ -431,6 +433,27 @@ launched tool process, not necessarily the child game lifetime. Whether
 Vortex detects the `Darktide.exe` child after the launcher exits is a UX
 detail to observe; if it does not, that is a UX issue to address later, not a
 blocker.
+
+**Primary-tool auto-promotion.** Vortex 2.3 and 2.4 do NOT honor
+`ITool.defaultPrimary` for auto-promotion. Verified against the v2.3.0 and
+v2.4.0 source: `starter_dashlet`'s `primary-tool` test (registered via
+`registerTest("primary-tool", "gamemode-activated", ...)`) only validates or
+clears an existing primary, it never reads `defaultPrimary` and never promotes
+one. Consequence: on a fresh Vortex 2.4 install the Relay tool appears in the
+Tools list, not as the Default launcher, so Play would launch vanilla
+`Darktide.exe`.
+
+The extension therefore promotes Relay itself. `src/primaryTool.ts` registers
+a `gamemode-activated` test that dispatches
+`actions.setPrimaryTool(GAME_ID, RELAY_TOOL_ID)` when no primary is set for
+Darktide and the Relay tool has been discovered with a resolved `path`. The
+same promoter runs as a fire-and-forget tail of the `did-deploy` handler,
+because deploy is the realistic moment a freshly bundled Relay tool becomes
+discoverable.
+
+The decision (`shouldPromotePrimary`) is pure; only the thin factory closes
+over the Vortex api. It never overwrites a primary the user has already
+chosen, and never promotes onto a pathless discovery record.
 
 ### User-facing actions
 

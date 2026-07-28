@@ -14,11 +14,9 @@ import {
 
 /**
  * The primary-tool promoter is mocked so the wiring test can assert the
- * `did-deploy` handler invokes it without coupling to the real decision
- * (the decision is covered by `test/primaryTool.test.ts`). The factory
- * returns a vi.fn by default so any incidental invocation (e.g. the
- * `did-deploy` handler running during an unrelated test) is a no-op;
- * tests that assert on the call override the return value per-test via
+ * did-deploy handler invokes it without coupling to its real decision.
+ * The factory returns a vi.fn by default so any incidental invocation is
+ * a no-op; tests that assert on the call override it per-test via
  * `vi.mocked(...).mockReturnValue(...)`.
  */
 vi.mock('../src/primaryTool', () => ({
@@ -28,19 +26,12 @@ vi.mock('../src/primaryTool', () => ({
 }));
 
 /**
- * Builds a stub extension context that records only the surfaces the entry
- * uses. The cast is explicit: the real `IExtensionContext` has many
- * required methods this extension does not touch yet, and constructing them
- * all would couple the test to unrelated API surface. `as unknown as` states
- * that intent at the call site rather than papering over it with `as never`.
- *
- * The context also exposes an `api` stub since the installer factory closes
- * over `context.api` to read installed-mod state at install time, the tool
- * variables factory closes over `context.api`, and the event handlers
- * registered in `context.once` close over `context.api` for `onAsync`,
- * `events.on`, and `showErrorNotification`.
- *
- * Each test resets the recorded calls by building a fresh context.
+ * Minimal stub of `IExtensionContext`. The cast is explicit: building
+ * the full required shape would couple the test to API surface the
+ * extension does not touch. The context also exposes an `api` stub
+ * because the installer factory, the tool variables factory, and the
+ * event handlers registered in `context.once` all close over
+ * `context.api`.
  */
 function stubContext(): types.IExtensionContext {
   const api: {
@@ -64,8 +55,7 @@ function stubContext(): types.IExtensionContext {
     registerTest: vi.fn(),
     once: vi.fn((cb: () => void | PromiseLike<void>) => {
       // Invoke synchronously so the test can assert the handlers were
-      // registered. The real Vortex runtime defers this callback until
-      // extensions are initialized; here we just need the side effect.
+      // registered; the real Vortex runtime defers this callback.
       void cb();
     }),
     api: api as unknown as types.IExtensionApi,
@@ -115,10 +105,8 @@ describe('extension entry', () => {
   });
 
   it('registers the primary-tool promotion test with the spec id and gamemode-activated event', () => {
-    // Vortex 2.3 and 2.4 ignore `ITool.defaultPrimary`, so the
-    // extension promotes Relay itself via a `registerTest` check on
-    // `gamemode-activated` (the same event starter_dashlet's
-    // `primary-tool` test uses).
+    // Vortex 2.3 and 2.4 ignore ITool.defaultPrimary, so the extension
+    // promotes Relay itself via a registerTest check on gamemode-activated.
     const ctx = stubContext();
     main(ctx);
     expect(ctx.registerTest).toHaveBeenCalledTimes(1);
@@ -129,10 +117,9 @@ describe('extension entry', () => {
   });
 
   it('registers the two user-facing open-directory actions via registerAction', () => {
-    // The Open Relay log directory and Open Darktide console-log
-    // directory actions both ride through registerAction (design.md,
-    // User-facing actions). Open Mod Folder and Launch modded are Vortex built-ins and
-    // are NOT registered here.
+    // The Open Relay log directory and Open Darktide console-log directory
+    // actions ride through registerAction. Open Mod Folder and Launch
+    // modded are Vortex built-ins and are NOT registered here.
     const ctx = stubContext();
     main(ctx);
     expect(ctx.registerAction).toHaveBeenCalledTimes(2);
@@ -145,16 +132,16 @@ describe('extension entry', () => {
   });
 
   it('registers the Darktide game with the Relay supported tool attached', () => {
-    // Tools in Vortex 2.3 are declared on `IGame.supportedTools`, not via
-    // a separate `registerTool` method (api.d.ts line 4214). The entry
-    // relies on the game registration to carry the Relay tool.
+    // Tools in Vortex 2.3 are declared on IGame.supportedTools, not via a
+    // separate registerTool method; the entry relies on the game
+    // registration to carry the Relay tool.
     expect(game.supportedTools).toBeDefined();
     expect(game.supportedTools?.map((t) => t.id)).toContain(RELAY_TOOL_ID);
   });
 
   it('does not register a custom load order (uses Vortex native sort)', () => {
-    // The pivot drops the custom load-order page. The entry must not
-    // touch registerLoadOrder at all.
+    // The entry relies on Vortex native sort and must not touch
+    // registerLoadOrder at all.
     const ctx = stubContext();
     expect((ctx as unknown as { registerLoadOrder?: unknown }).registerLoadOrder).toBeUndefined();
     expect(() => main(ctx)).not.toThrow();
@@ -198,7 +185,6 @@ describe('event handler registration', () => {
   });
 
   it('does not register any other onAsync channels', () => {
-    // did-deploy is the only async channel this extension subscribes to.
     const ctx = stubContext();
     main(ctx);
     const api = ctx.api as unknown as { onAsync: ReturnType<typeof vi.fn> };
@@ -209,9 +195,8 @@ describe('event handler registration', () => {
   it('invokes the primary-tool promoter from the did-deploy handler', async () => {
     // Deploy is the realistic moment at which a freshly bundled Relay
     // tool becomes discoverable, so the did-deploy handler runs the
-    // same promoter as the gamemode-activated test (fire-and-forget).
-    // The primaryTool module is mocked at the file top; this test
-    // overrides the factory to return a per-test spy.
+    // promoter fire-and-forget. primaryTool is mocked at the file top;
+    // this test overrides the factory to return a per-test spy.
     const promoterSpy = vi.fn(async () => undefined);
     vi.mocked(createPrimaryToolPromoter).mockReturnValue(promoterSpy);
     const ctx = stubContext();

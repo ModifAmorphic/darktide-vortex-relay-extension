@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { DEPLOY_DIR_NAME, LOAD_ORDER_DIR_NAME, MOD_ROOT_DIR_NAME } from '../src/constants';
 import { deployDir, loadOrderDir, modRoot, modsContentDir, relayDir } from '../src/paths';
 
-// Production is Windows-only and CI runs on Windows, so path.join produces
-// backslash-separated output. Tests assert exact Windows strings.
+// Production and CI run on Windows, so path.join emits backslashes; tests
+// assert exact Windows strings.
 const USER_DATA = 'C:\\Users\\Test\\AppData\\Roaming\\Vortex';
 
 describe('paths', () => {
@@ -16,8 +16,6 @@ describe('paths', () => {
     });
 
     it('normalizes a trailing separator on input', () => {
-      // path.join collapses the trailing backslash; output matches the
-      // non-trailing-separator case exactly.
       expect(modRoot(`${USER_DATA}\\`)).toBe(
         `C:\\Users\\Test\\AppData\\Roaming\\Vortex\\${MOD_ROOT_DIR_NAME}`,
       );
@@ -34,8 +32,8 @@ describe('paths', () => {
 
   describe('modsContentDir', () => {
     it('appends the mods segment under deployDir', () => {
-      // Relay's --mod-path points at deployDir; the launcher expects
-      // <deployDir>/mods/ to contain the mod folders and mods.lst.
+      // modsContentDir is the <deployDir>/mods/ subtree Relay loads via
+      // --mod-path <deployDir>.
       expect(modsContentDir(USER_DATA)).toBe(
         `C:\\Users\\Test\\AppData\\Roaming\\Vortex\\${MOD_ROOT_DIR_NAME}\\${DEPLOY_DIR_NAME}\\mods`,
       );
@@ -62,9 +60,8 @@ describe('paths', () => {
 
   describe('relayDir', () => {
     it('returns an absolute path ending with the relay segment', () => {
-      // relayDir resolves via __dirname, so the exact prefix depends on
-      // where the test process loaded the module from. The final
-      // segment must be 'relay' (design.md, Relay tool).
+      // relayDir resolves via __dirname, so the prefix is host-specific;
+      // assert only the final segment.
       const result = relayDir();
       const segments = result.split(/[\\/]/);
       expect(segments[segments.length - 1]).toBe('relay');
@@ -93,8 +90,6 @@ describe('paths', () => {
     });
 
     it('does not touch the filesystem', () => {
-      // Pure-function smoke check: calling the helpers must not throw or
-      // require any filesystem state to exist.
       expect(() => {
         modRoot(USER_DATA);
         deployDir(USER_DATA);

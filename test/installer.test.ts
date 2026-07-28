@@ -18,34 +18,26 @@ import {
 } from '../src/installer';
 
 /**
- * The installer is exercised two ways:
+ * planInstall is exercised directly with a hand-rolled `existingMods`
+ * map; createInstaller is exercised via a stub api whose getState
+ * returns controllable state, with selectors.modsForGame mocked at
+ * module scope so duplicate-name detection is verified against the live
+ * selector wiring.
  *
- * 1. Pure: tests call {@link planInstall} directly with a hand-rolled
- *    `existingMods` map. No Vortex state plumbing required.
- * 2. Via the factory: tests call {@link createInstaller} with a stub api
- *    whose `getState()` returns controllable state. `selectors.modsForGame`
- *    is mocked at module scope as a `vi.fn` and re-controlled per test via
- *    `vi.mocked(...)`. This verifies duplicate-name detection wires
- *    correctly through the live `selectors.modsForGame` lookup.
- *
- * Instruction shape grounding (see `src/installer.ts` header): fatal
- * rejections are emitted as `{ type: 'error', source: <message>,
- * value: 'fatal' }`. Vortex reads `source` as the user-facing message and
- * rejects the install when `value === 'fatal'`.
+ * Fatal rejections are emitted as `{ type: 'error', source: <message>,
+ * value: 'fatal' }`: Vortex reads `source` as the user-facing message
+ * and rejects the install when `value === 'fatal'`.
  */
 
 /**
- * The mods dictionary the mocked `selectors.modsForGame` returns for the
- * Darktide game id in the current test. Reset in `beforeEach` to `{}` so
- * each test starts from an empty install state unless it explicitly sets
- * this. Factory tests that need duplicate-mod state assign to this object
- * before calling `installer.install`.
+ * The mods dictionary the mocked selectors.modsForGame returns for the
+ * Darktide game id; reset per test. Factory tests that need
+ * duplicate-mod state assign to this before calling installer.install.
  */
 let modsForDarktide: Record<string, types.IMod>;
 
 vi.mock('@nexusmods/vortex-api', () => ({
   selectors: {
-    // vi.fn so individual tests can override via vi.mocked(...).mockImplementation.
     modsForGame: vi.fn((_state: unknown, _gameId: string) => ({})),
   },
   util: { getVortexPath: vi.fn(() => '/stub') },
@@ -54,21 +46,14 @@ vi.mock('@nexusmods/vortex-api', () => ({
 
 beforeEach(() => {
   modsForDarktide = {};
-  // Reset to the default behavior: return the controllable Darktide map for
-  // the Darktide game id, empty object for any other game.
   vi.mocked(selectors.modsForGame).mockImplementation((_state, gameId) =>
     gameId === GAME_ID ? modsForDarktide : {},
   );
 });
 
-/** Empty existing-mods map for happy-path install tests. */
 const NO_EXISTING_MODS: ReadonlyMap<string, string | undefined> = new Map();
 
-/**
- * Helper: find the first instruction of a given type, or fail the test if
- * none exists. Keeps assertions readable when the plan emits one
- * attribute plus many copies.
- */
+/** First instruction of `type`, or fail the test if none exists. */
 function firstInstructionOfType(
   instructions: types.IInstruction[],
   type: types.InstructionType,
@@ -82,18 +67,13 @@ function firstInstructionOfType(
   return found;
 }
 
-/**
- * Helper: returns `true` if any instruction in `instructions` is a `copy`
- * from `source` to `destination`. Avoids depending on instruction order
- * for plans that emit many copies.
- */
+/** True if any instruction is a `copy` from `source` to `destination`. */
 function hasCopy(instructions: types.IInstruction[], source: string, destination: string): boolean {
   return instructions.some(
     (i) => i.type === 'copy' && i.source === source && i.destination === destination,
   );
 }
 
-/** Builds a mod object with only the fields the installer reads. */
 function modWithRelayName(modId: string, relayModName: string): types.IMod {
   return {
     id: modId,
@@ -104,11 +84,6 @@ function modWithRelayName(modId: string, relayModName: string): types.IMod {
   };
 }
 
-/**
- * Builds a stub `IExtensionApi` whose `getState()` returns a minimal state
- * object. The `selectors.modsForGame` mock is controlled via the
- * module-level `modsForDarktide` variable (reset per test).
- */
 function stubApi(): types.IExtensionApi {
   return {
     getState: () => ({ persistent: { mods: { [GAME_ID]: modsForDarktide } } }),
@@ -346,7 +321,6 @@ describe('planInstall: rejection paths', () => {
     expect(instr.type).toBe('error');
     expect(instr.value).toBe('fatal');
     expect(instr.source).toMatch(/multiple unrelated \.mod entries/i);
-    // Message should list the .mod entry paths so the user can find them.
     expect(instr.source).toContain('"foo/foo.mod"');
     expect(instr.source).toContain('"bar/bar.mod"');
   });
@@ -373,9 +347,8 @@ describe('planInstall: rejection paths', () => {
   });
 
   it('emits a fatal error for a path-traversal .mod (../escape.mod)', () => {
-    // `../escape.mod` has basename `escape`, a safe name, but its containing
-    // directory `..` disagrees with the basename. The directory-agreement
-    // check is what catches this case.
+    // `../escape.mod` has a safe basename but a disagreeing directory; the
+    // directory-agreement check is what catches it.
     const files = ['../escape.mod'];
     const result = planInstall(files, GAME_ID, NO_EXISTING_MODS);
     expect(result.instructions).toHaveLength(1);
@@ -385,8 +358,8 @@ describe('planInstall: rejection paths', () => {
   });
 
   it('emits a fatal error when the canonical name reduces to "."', () => {
-    // A file literally named `..mod` strips to `.`; the agreement check
-    // passes (single-segment path), but isSafeCanonicalName rejects `.`.
+    // `..mod` strips to `.`: agreement passes (single segment) but
+    // isSafeCanonicalName rejects `.`.
     const files = ['..mod'];
     const result = planInstall(files, GAME_ID, NO_EXISTING_MODS);
     expect(result.instructions).toHaveLength(1);
@@ -398,8 +371,7 @@ describe('planInstall: rejection paths', () => {
   });
 
   it('emits a fatal error when the canonical name reduces to empty', () => {
-    // A file literally named `.mod` strips to empty; isSafeCanonicalName
-    // rejects empty.
+    // `.mod` strips to empty; isSafeCanonicalName rejects empty.
     const files = ['.mod'];
     const result = planInstall(files, GAME_ID, NO_EXISTING_MODS);
     expect(result.instructions).toHaveLength(1);
@@ -428,7 +400,6 @@ describe('planInstall: rejection paths', () => {
     const existing = new Map<string, string | undefined>([['other-mod', 'other_name']]);
     const files = ['example/example.mod', 'example/scripts/x.lua'];
     const result = planInstall(files, GAME_ID, existing);
-    // Should produce the happy-path plan, not a duplicate error.
     // 2 copies + 1 attribute + 1 after-DMF rule.
     expect(result.instructions).toHaveLength(4);
     expect(firstInstructionOfType(result.instructions, 'attribute').value).toBe('example');
@@ -444,10 +415,7 @@ describe('planInstall: rejection paths', () => {
   });
 });
 
-/**
- * Factory-path tests: verifies the api wiring for duplicate-name detection
- * matches the grounded `selectors.modsForGame(state, gameId)` read.
- */
+/** Factory-path tests: verifies duplicate-name detection reads selectors.modsForGame(state, gameId). */
 describe('createInstaller', () => {
   it('returns an object with id, priority, testSupported, install', () => {
     const api = stubApi();
@@ -488,8 +456,7 @@ describe('createInstaller', () => {
     expect(result.instructions[0]!.type).toBe('error');
     expect(result.instructions[0]!.value).toBe('fatal');
     expect(result.instructions[0]!.source).toContain('existing-mod-id');
-    // Verify the state lookup actually happened (guards against a future
-    // regression that hardcodes an empty map).
+    // Guards against a regression that hardcodes an empty map.
     expect(selectors.modsForGame).toHaveBeenCalled();
   });
 
@@ -511,10 +478,9 @@ describe('createInstaller', () => {
   });
 
   it('install reads mods scoped to the install gameId, not another game', async () => {
-    // A mod with the same canonical name installed for a *different* game
-    // must NOT be treated as a collision. selectors.modsForGame(state, gameId)
-    // is scoped per-game; the mock returns the mod only for `other-game`
-    // and an empty object for the Darktide game id.
+    // selectors.modsForGame(state, gameId) is scoped per-game; the mock
+    // returns the example-named mod only for `other-game`, so it must not
+    // collide with the Darktide install.
     vi.mocked(selectors.modsForGame).mockImplementation(
       (_state, gameId): Record<string, types.IMod> => {
         if (gameId === 'other-game') {
@@ -535,8 +501,6 @@ describe('createInstaller', () => {
   });
 
   it('install passes through to planInstall unmodified for happy paths', async () => {
-    // Sanity: the factory's wiring does not drop instructions vs the pure
-    // plan. Run both and assert deep equality on the instruction list.
     const api = stubApi();
     const installer = createInstaller(api);
     const files = ['example/example.mod', 'example/scripts/foo.lua'];

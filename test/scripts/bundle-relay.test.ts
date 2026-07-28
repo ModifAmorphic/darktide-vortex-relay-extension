@@ -4,15 +4,10 @@ import { selectLatestRelease, selectWindowsAsset } from '../../scripts/bundle-re
 
 /**
  * Unit tests for the pure release- and asset-selection helpers in
- * `scripts/bundle-relay.ts`. The network I/O, download streaming, and
- * PowerShell extraction are integration-level (validated manually); the
- * pure helpers are covered here.
- *
- * Fixture shape mirrors the GitHub REST API releases response
- * (grounded against a live call on 2026-07-26): each release has
- * `tag_name`, `published_at`, `draft`, `prerelease`, and `assets[]`
- * where each asset has `id`, `name`, `size`, and
- * `browser_download_url`.
+ * scripts/bundle-relay.ts. Fixture shape mirrors the GitHub REST API
+ * releases response: each release has tag_name, published_at, draft,
+ * prerelease, and assets[] where each asset has id, name, size, and
+ * browser_download_url.
  */
 
 interface Asset {
@@ -96,7 +91,7 @@ describe('selectLatestRelease', () => {
       makeRelease('v0.5.0', '2026-06-01T00:00:00Z', []),
     ];
     const result = selectLatestRelease(releases);
-    // The pre-release is newer by date; it must be selected.
+    // The pre-release is newer by date, so it must be selected.
     expect(result.tagName).toBe('v0.5.1-beta');
   });
 

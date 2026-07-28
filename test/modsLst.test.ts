@@ -11,11 +11,6 @@ import { GAME_ID, MOD_ATTRIBUTE_NAME } from '../src/constants';
 import { projectActiveProfileModsLst, projectModsLst, serializeModsLst } from '../src/modsLst';
 import * as paths from '../src/paths';
 
-/**
- * For the projectModsLst tests, each test gets a fresh isolated tmp
- * directory created with `fs.mkdtemp`, matching per-test isolation.
- * The pure serializeModsLst tests do not touch the filesystem.
- */
 let dir: string;
 
 beforeEach(async () => {
@@ -28,11 +23,9 @@ afterEach(async () => {
 
 /**
  * Vortex API mock. The factory creates plain stubs; per-test behavior is
- * controlled by re-implementing `selectors.activeProfile`,
- * `selectors.modsForGame`, and `util.sortMods` via
- * `vi.mocked(...).mockImplementation(...)` in `beforeEach` and individual
- * tests. The factory itself does not close over outer test state because
- * `vi.mock` is hoisted above the describe block.
+ * controlled by re-implementing the selectors and util.sortMods in
+ * beforeEach. The factory does not close over outer test state because
+ * vi.mock is hoisted above the describe block.
  */
 vi.mock('@nexusmods/vortex-api', () => ({
   util: {
@@ -73,10 +66,8 @@ describe('serializeModsLst', () => {
   it('preserves non-ASCII names (UTF-8 round-trip)', () => {
     const names = ['café', '世界'];
     const content = serializeModsLst(names);
-    // The serialized content must contain the original characters; a
-    // latin1 or ASCII-only implementation would mangle these.
+    // A latin1 or ASCII-only implementation would mangle these.
     expect(content).toBe('café\r\n世界\r\n');
-    // Re-decode the UTF-8 bytes to confirm the round-trip is lossless.
     const decoded = Buffer.from(content, 'utf8').toString('utf8');
     expect(decoded).toBe(content);
   });
@@ -94,8 +85,8 @@ describe('serializeModsLst', () => {
     const content = serializeModsLst(names);
     await fs.writeFile(target, content, 'utf8');
     const readBack = await fs.readFile(target, 'utf8');
-    // Parse the same way Relay's reader does: split on lines, drop blank
-    // trailing entries from the final CRLF.
+    // Parse the way Relay's reader does: split on lines, drop the blank
+    // trailing entry from the final CRLF.
     const parsed = readBack.split(/\r\n/).filter((line) => line.length > 0);
     expect(parsed).toEqual(names);
   });
@@ -133,68 +124,37 @@ describe('projectModsLst', () => {
   });
 });
 
-/**
- * projectActiveProfileModsLst orchestrator tests.
- *
- * The orchestrator reads Vortex state via `selectors.activeProfile` and
- * `selectors.modsForGame`, calls `util.sortMods`, and writes via
- * `projectModsLst`. Tests control state and the sort result by mocking
- * `@nexusmods/vortex-api` (see the top-level `vi.mock` factory). The
- * orchestrator is the seam where Vortex's native sort meets the
- * canonical-name projection; these tests verify that wiring without
- * depending on real Vortex behavior.
- */
+/** projectActiveProfileModsLst orchestrator tests. */
 describe('projectActiveProfileModsLst', () => {
-  /**
-   * Each test owns this map of modId -> IMod so it can describe the
-   * installed-mod state for one game. Reset before every test.
-   */
   let modsForDarktide: Record<string, types.IMod>;
 
-  /**
-   * The active profile used in the current test. Tests set this when
-   * they need to drive the active-profile selector. Cast as `IProfile`
-   * because the orchestrator only reads `gameId` and `modState`; building
-   * the full required-IProfile shape would couple the test to unrelated
-   * fields.
-   */
   let activeProfile: types.IProfile | undefined;
 
   beforeEach(async () => {
     modsForDarktide = {};
     activeProfile = undefined;
-    // Clear call history from prior tests so `toHaveBeenCalled` and the
-    // call-count assertions see only the current test's calls.
+    // Clear call history so call-count assertions see only this test.
     vi.mocked(selectors.activeProfile).mockClear();
     vi.mocked(selectors.modsForGame).mockClear();
     vi.mocked(util.sortMods).mockClear();
-    // Default implementations read the current test's `modsForDarktide`
-    // and `activeProfile` via closure. Individual tests override
-    // `util.sortMods` to control the sort result.
+    // Default implementations read this test's `modsForDarktide` and
+    // `activeProfile` via closure; individual tests override sortMods to
+    // control the sort result.
     vi.mocked(selectors.activeProfile).mockImplementation(() => activeProfile);
     vi.mocked(selectors.modsForGame).mockImplementation((_state, gameId) =>
       gameId === GAME_ID ? modsForDarktide : {},
     );
     vi.mocked(util.sortMods).mockImplementation(async (_gameId, mods) => mods as types.IMod[]);
     vi.mocked(util.getVortexPath).mockReturnValue(dir);
-    // The orchestrator writes to `paths.modsContentDir(userData)`, which
-    // is `<dir>/warhammer40kdarktide-relay/deploy/mods/`. The runtime
-    // `setup` creates this; tests mirror that here so writeAtomic does
-    // not fail with ENOENT.
+    // The orchestrator writes to paths.modsContentDir(dir); create it so
+    // writeAtomic does not fail with ENOENT.
     await fs.mkdir(paths.modsContentDir(dir), { recursive: true });
   });
 
-  /** Helper: a mod with a relayModName attribute. Casts to IMod because the
-   * orchestrator only reads `id` and `attributes`; building the full
-   * required-IMod shape would couple the test to unrelated fields. */
   function mod(modId: string, canonical: string): types.IMod {
     return { id: modId, attributes: { [MOD_ATTRIBUTE_NAME]: canonical } } as unknown as types.IMod;
   }
 
-  /**
-   * Helper: build an IProfile fixture for the Darktide game. Casts the
-   * partial shape; the orchestrator only reads `gameId` and `modState`.
-   */
   function profile(modState: Record<string, { enabled: boolean }>): types.IProfile {
     return {
       id: 'profile-1',
@@ -205,19 +165,16 @@ describe('projectActiveProfileModsLst', () => {
     } as unknown as types.IProfile;
   }
 
-  /** Helper: build a stub api that returns the live modsForDarktide map. */
   function stubApi() {
     return {
       getState: () => ({ persistent: { mods: { [GAME_ID]: modsForDarktide } } }),
     } as unknown as Parameters<typeof projectActiveProfileModsLst>[0];
   }
 
-  /** Helper: read the projected mods.lst from the mods content dir. */
   async function readModsLst(): Promise<string> {
     return fs.readFile(path.join(paths.modsContentDir(dir), 'mods.lst'), 'utf8');
   }
 
-  /** Helper: stat the projected mods.lst from the mods content dir. */
   async function statModsLst(): Promise<Stats> {
     return fs.stat(path.join(paths.modsContentDir(dir), 'mods.lst'));
   }
@@ -245,7 +202,6 @@ describe('projectActiveProfileModsLst', () => {
     expect(util.sortMods).toHaveBeenCalledTimes(1);
     const sortArgs = vi.mocked(util.sortMods).mock.calls[0]!;
     expect(sortArgs[0]).toBe(GAME_ID);
-    // sortMods received exactly the enabled mods.
     expect(sortArgs[1]).toHaveLength(3);
 
     expect(await readModsLst()).toBe('dmf\r\nscoreboard\r\nnumeric_ui\r\n');
@@ -273,8 +229,8 @@ describe('projectActiveProfileModsLst', () => {
   it('omits mods whose relayModName attribute is missing', async () => {
     modsForDarktide = {
       dmf: mod('dmf', 'dmf'),
-      // Installed but missing the relayModName attribute (e.g. a mod
-      // installed by a different extension or before the attribute existed).
+      // Installed but missing the relayModName attribute (e.g. installed by
+      // a different extension or before the attribute existed).
       noAttr: { id: 'noAttr', attributes: {} } as unknown as types.IMod,
     };
     activeProfile = profile({ dmf: { enabled: true }, noAttr: { enabled: true } });
@@ -315,9 +271,8 @@ describe('projectActiveProfileModsLst', () => {
 
     await projectActiveProfileModsLst(stubApi());
 
-    // No enabled mods -> sortMods is still called with an empty array,
-    // and the projection writes an empty file (Relay treats this as
-    // "no mods load").
+    // No enabled mods: sortMods is still called with an empty array, and
+    // the projection writes an empty file (Relay treats this as no mods).
     expect(util.sortMods).toHaveBeenCalledTimes(1);
     const stats = await statModsLst();
     expect(stats.size).toBe(0);

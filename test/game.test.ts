@@ -17,9 +17,8 @@ import {
 import { game, setupDiscoveredGame } from '../src/game';
 import * as paths from '../src/paths';
 
-// Predictable Windows userData path so assertions are exact. Production
-// runs on Windows and CI runs on Windows, so path.join produces
-// backslash-separated output.
+// Predictable Windows userData path so assertions are exact; production
+// and CI run on Windows, so path.join emits backslashes.
 const FAKE_USER_DATA = 'C:\\Users\\Test\\AppData\\Roaming\\Vortex';
 const EXPECTED_DEPLOY_DIR = `${FAKE_USER_DATA}\\${MOD_ROOT_DIR_NAME}\\${DEPLOY_DIR_NAME}`;
 const EXPECTED_MODS_CONTENT_DIR = `${EXPECTED_DEPLOY_DIR}\\mods`;
@@ -66,9 +65,9 @@ describe('game registration object', () => {
   });
 
   it('publishes the Steam app id under the steam store key for discovery', () => {
-    // queryArgs is keyed by store id; the value is an IStoreQuery. The bare
-    // { id: STEAM_APP_ID } form would register under a store named "id" and
-    // Steam discovery would never match it.
+    // queryArgs is keyed by store id; the bare { id: STEAM_APP_ID } form
+    // would register under a store named "id" and Steam discovery would
+    // never match it.
     expect(game.queryArgs).toEqual({ steam: { id: STEAM_APP_ID } });
   });
 
@@ -90,27 +89,25 @@ describe('game registration object', () => {
   });
 
   it('exposes getModPaths for the built-in Open Mod Folder action', () => {
-    // Vortex's openModFolder handler resolves its target by calling
-    // getGame(gameId).getModPaths(discovered.path)[""]. Without getModPaths
-    // the built-in action silently fails for Darktide (design.md, User-facing actions).
+    // Vortex's openModFolder handler resolves its target via
+    // getGame(gameId).getModPaths(discovered.path)['']; without getModPaths
+    // the built-in action silently fails for Darktide.
     expect(typeof game.getModPaths).toBe('function');
   });
 
   it("returns modsContentDir for getModPaths['']", () => {
     // The empty-string key is the default mod type. Returning
-    // modsContentDir (the directory that holds the deployed mod trees and
-    // mods.lst, matching queryModPath) makes the built-in Open Mod Folder
-    // action open the right directory. Returning deployDir (the
-    // --mod-path parent) would open the wrong directory.
+    // modsContentDir (matching queryModPath) makes the built-in Open Mod
+    // Folder action open the right directory; returning deployDir would
+    // open the wrong one.
     const result = game.getModPaths?.('/discovered/darktide');
     expect(result).toBeDefined();
     expect(result!['']).toBe(EXPECTED_MODS_CONTENT_DIR);
   });
 
   it('getModPaths ignores the discovered game path argument', () => {
-    // Vortex calls getModPaths with the discovered install path; the
-    // extension-owned mod directory never depends on it (design
-    // invariant; design.md, Design invariants).
+    // The extension-owned mod directory never depends on the discovered
+    // Darktide install path.
     const fromOne = game.getModPaths?.('/first/darktide');
     const fromOther = game.getModPaths?.('/completely/different/darktide');
     expect(fromOne).toEqual(fromOther);
@@ -118,9 +115,8 @@ describe('game registration object', () => {
   });
 
   it('matches queryModPath exactly (single source of truth for the mod dir)', () => {
-    // getModPaths[''] and queryModPath must agree: both are the directory
-    // Vortex deploys each mod tree into. Drift would mean the user opens
-    // a different folder than the one their mods are deployed to.
+    // getModPaths[''] and queryModPath must agree: drift would open a
+    // different folder than the one mods deploy to.
     expect(game.getModPaths?.('any')!['']).toBe(game.queryModPath('any'));
   });
 
@@ -130,7 +126,7 @@ describe('game registration object', () => {
 
   it('registers the Relay tool via supportedTools (no registerTool API)', () => {
     // Vortex 2.3 has no context.registerTool; tools are declared on the
-    // game's supportedTools array (api.d.ts line 4214).
+    // game's supportedTools array.
     expect(game.supportedTools).toBeDefined();
     expect(game.supportedTools).toHaveLength(1);
     expect(game.supportedTools?.[0]?.id).toBe(RELAY_TOOL_ID);
@@ -155,7 +151,7 @@ describe('setupDiscoveredGame', () => {
     const calls = vi.mocked(fs.ensureDirWritableAsync).mock.calls.map((c) => c[0]);
     for (const dir of calls) {
       // Every directory must live under Vortex userData, never inside the
-      // discovered Darktide install (design invariant; design.md, Design invariants).
+      // discovered Darktide install.
       expect(dir.startsWith(FAKE_USER_DATA)).toBe(true);
       expect(dir.startsWith(discoveryPath)).toBe(false);
     }

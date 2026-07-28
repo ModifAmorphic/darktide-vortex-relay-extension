@@ -4,13 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { assertArchiveRoot, composeArchivePath, readInfoVersion } from '../../scripts/package';
 
-/**
- * Unit tests for the pure helpers in `scripts/package.ts`. The
- * PowerShell zip I/O, the staging copy, and the build step are
- * integration-level (validated manually); the version parse, output
- * path composition, and root-layout assertion are covered here.
- */
-
+/** Unit tests for the pure helpers in scripts/package.ts. */
 describe('readInfoVersion', () => {
   it('returns the version field from a valid info.json', () => {
     const text = JSON.stringify({
@@ -108,8 +102,8 @@ describe('assertArchiveRoot', () => {
   });
 
   it('rejects a wrapper directory (info.json nested under a dir)', () => {
-    // A wrapper directory would nest the root files one level deep.
-    // Compress-Archive invoked WITHOUT the /* glob produces this shape.
+    // A wrapper directory nests the root files one level deep; this is
+    // what Compress-Archive produces without the /* glob.
     const entries = [
       'darktide-relay/info.json',
       'darktide-relay/gameart.png',
@@ -122,8 +116,7 @@ describe('assertArchiveRoot', () => {
   });
 
   it('normalizes backslash separators to forward slashes (Compress-Archive output)', () => {
-    // PowerShell Compress-Archive on Windows writes backslash entry
-    // separators. The assertion must accept either form.
+    // Compress-Archive on Windows writes backslash entry separators.
     const entries = [
       'info.json',
       'gameart.png',
@@ -141,7 +134,7 @@ describe('assertArchiveRoot', () => {
 
   it('does NOT match relay/mod_relay.exe via a partial substring', () => {
     // Ensures the check is exact-equality on the normalized path, not a
-    // substring/contains test.
+    // substring test.
     const entries = [
       'info.json',
       'gameart.png',
@@ -158,8 +151,7 @@ describe('assertArchiveRoot', () => {
   });
 
   it('accepts extra entries alongside the required set', () => {
-    // The archive is allowed to carry additional files; only the
-    // required root set is asserted.
+    // Only the required root set is asserted; extra files are allowed.
     const entries = [
       'info.json',
       'gameart.png',
@@ -172,8 +164,8 @@ describe('assertArchiveRoot', () => {
   });
 
   it('ignores directory entries', () => {
-    // Some zip tools store explicit directory entries (e.g. "relay/").
-    // These must not interfere with the file presence check.
+    // Some zip tools store explicit directory entries (e.g. "relay/")
+    // which must not interfere with the file presence check.
     const entries = ['info.json', 'gameart.png', 'index.js', 'relay/', 'relay/mod_relay.exe'];
     expect(assertArchiveRoot(entries)).toEqual([]);
   });

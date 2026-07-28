@@ -1,39 +1,25 @@
 /**
- * Runtime stub for the types-only `@nexusmods/vortex-api` package.
- *
- * The published package ships only TypeScript declarations (its `exports`
- * field exposes a `types` condition but no runtime entry). At production
- * runtime, Vortex's extension `require` wrapper intercepts the bare
- * specifier and returns the host application's API proxy.
- *
- * Vitest resolves modules under the `node`/`import` conditions, so without
- * help it cannot resolve `@nexusmods/vortex-api` and fails before any
- * `vi.mock` factory runs. `vitest.config.ts` aliases the bare specifier to
- * this file so that source modules which value-import `util`, `fs`, and
- * `selectors` load cleanly. Tests that need to assert on calls to the API
- * still use `vi.mock('@nexusmods/vortex-api', factory)` to replace these
- * defaults with controllable spies; the alias is only the resolvable
- * fallback.
- *
- * Type-only imports (`import type { types }`) are erased by the transpiler
- * and never reach this stub, so it intentionally provides no `types`
- * export.
+ * Runtime stub for the types-only `@nexusmods/vortex-api` package. The
+ * published package ships only TypeScript declarations, and at production
+ * runtime Vortex's require wrapper returns the host API. Vitest cannot
+ * resolve the bare specifier under the node/import conditions, so
+ * vitest.config.ts aliases it to this file so value-imports (util, fs,
+ * selectors, actions) load cleanly. Tests that assert on calls still use
+ * `vi.mock('@nexusmods/vortex-api', factory)` to replace these defaults
+ * with controllable spies. Type-only imports (`import type { types }`)
+ * are erased and never reach this stub, so it provides no `types` export.
  */
 
 export const util = {
   getVortexPath(): string {
     return '/stub/vortex/userData';
   },
-  // Default no-op sort: returns the input unchanged. Tests that assert on
-  // ordering mock `util.sortMods` via `vi.mock('@nexusmods/vortex-api',
-  // ...)`. Kept here so modules that value-import `util` load even when
-  // the test does not replace it.
+  // Default no-op sortMods so modules that value-import util load even
+  // when the test does not replace it.
   sortMods: async <T>(_gameId: string, mods: T[], _api: unknown): Promise<T[]> => mods,
-  // Default open-directory stub: resolves immediately. Tests that assert
-  // on `util.opn` override it via `vi.mock('@nexusmods/vortex-api',
-  // ...)`. Kept here so action handlers loaded as part of module init
-  // (registerActions) do not trigger unhandled rejections in unrelated
-  // tests.
+  // Default open-directory stub resolving immediately, so action handlers
+  // loaded as part of module init do not trigger unhandled rejections in
+  // unrelated tests.
   opn: async (_target: string): Promise<void> => {
     // intentionally empty; tests override via vi.mock when asserting.
   },
@@ -50,11 +36,7 @@ export const fs = {
   },
 };
 
-/**
- * Minimal selectors stub. Tests that need to control installed-mod,
- * active-profile, or discovery state override these via
- * `vi.mock('@nexusmods/vortex-api', ...)`.
- */
+/** Minimal selectors stub. */
 export const selectors = {
   activeProfile(_state: unknown): unknown {
     return undefined;
@@ -68,13 +50,10 @@ export const selectors = {
 };
 
 /**
- * Minimal `actions` namespace stub. `actions.setPrimaryTool` is the only
- * action creator the extension value-imports (from `./primaryTool.ts`);
- * the stub returns an opaque sentinel so modules that value-import
- * `actions` load cleanly. Tests that assert on the dispatch path use a
- * `store.dispatch` spy and (when they need to assert on the action
- * object itself) a `vi.mock('@nexusmods/vortex-api', ...)` override
- * matching the pattern used for `util` and `selectors`.
+ * Minimal actions namespace stub. setPrimaryTool is the only action
+ * creator the extension value-imports (from ./primaryTool.ts); the stub
+ * returns an opaque sentinel so modules that value-import actions load
+ * cleanly.
  */
 export const actions = {
   setPrimaryTool(_gameId: string, _toolId: string): unknown {
