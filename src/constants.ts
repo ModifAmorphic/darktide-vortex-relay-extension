@@ -91,9 +91,7 @@ export const DMF_NEXUS_MOD_ID = '8';
 
 /**
  * The internal Vortex tool id for Mod Relay. Used by the tool
- * registration (`IGame.supportedTools`) and to identify Relay launches
- * in the start hook (the executable path is matched against the relay
- * directory; this id is used for logging and any Vortex UI surfaces).
+ * registration (`IGame.supportedTools`) and any Vortex UI surfaces.
  */
 export const RELAY_TOOL_ID = 'mod-relay';
 
@@ -113,21 +111,6 @@ export const RELAY_TOOL_SHORT_NAME = 'Relay';
  * a shared array constant.
  */
 export const RELAY_EXECUTABLE = 'mod_relay.exe';
-
-/**
- * Filename of the warn-once flag file that suppresses the DMF-absent /
- * DMF-misordered launch warning after it has fired once on a Vortex
- * install (design.md, Launch guard, Soft warning). Stored under the extension's
- * mod root, not the deploy dir, so purge/deploy cycles do not clear it.
- */
-export const DMF_WARNING_FILE_NAME = '.dmf-warning-state.json';
-
-/**
- * Schema version embedded in the DMF warn-flag file. Increment if the
- * file shape ever changes; the start hook reads but does not currently
- * migrate older versions.
- */
-export const DMF_WARNING_FILE_VERSION = 1;
 
 /**
  * Path segments from `%APPDATA%` to the Darktide console-log directory.

@@ -11,8 +11,8 @@ page.
 The release covers the full Darktide mod lifecycle through Mod Relay:
 Darktide game registration, the `.mod` archive installer (with auto DMF
 dependency rules), `mods.lst` projection from Vortex's built-in mod sort,
-the Mod Relay tool registration with launch-time variable resolution, the
-launch-guard start hook, user-facing open-directory actions, and Relay
+the Mod Relay tool registration with launch-time variable resolution,
+user-facing open-directory actions, and Relay
 bundling plus the release-archive pipeline.
 
 ## Install

@@ -11,10 +11,7 @@
  * imports. The higher-level {@link projectActiveProfileModsLst}
  * orchestrator (design.md, mods.lst projection, Projection orchestrator) wires those helpers to the live
  * Vortex state and `util.sortMods`. It is invoked from the `did-deploy`
- * and `profile-did-change` event handlers registered in `./index.ts`;
- * the Relay start hook calls {@link projectAndValidateModsLst}, which
- * returns the projected names and any validation problems so the hook
- * can block launch when deployed state is inconsistent.
+ * and `profile-did-change` event handlers registered in `./index.ts`.
  *
  * Format choices (do not change without operator approval):
  *
@@ -34,9 +31,8 @@ import * as path from 'node:path';
 import type { types } from '@nexusmods/vortex-api';
 import { selectors, util } from '@nexusmods/vortex-api';
 
-import { DMF_CANONICAL_NAME, GAME_ID, MOD_ATTRIBUTE_NAME } from './constants';
+import { GAME_ID, MOD_ATTRIBUTE_NAME } from './constants';
 import * as paths from './paths';
-import { isSafeCanonicalName } from './util/names';
 import { writeAtomic } from './util/fs';
 
 /** Line ending used between and after `mods.lst` entries. */
@@ -110,10 +106,7 @@ export async function projectModsLst(
  *
  * Throws on sort or write failure. The `did-deploy` and
  * `profile-did-change` handlers in `./index.ts` catch and surface via
- * `api.showErrorNotification`; the Relay start hook calls
- * {@link projectAndValidateModsLst} (which runs the same projection and
- * additionally returns validation problems so the hook can block
- * launch on inconsistent deployed state).
+ * `api.showErrorNotification`.
  *
  * Version grounding (verified against the installed
  * `@nexusmods/vortex-api@2.3.0-beta.1` types):
@@ -145,10 +138,9 @@ export async function projectActiveProfileModsLst(api: types.IExtensionApi): Pro
 
 /**
  * Outcome of the projection orchestrator when there is work to do.
- * Returned by {@link resolveActiveProfileProjection}; consumed by both
- * {@link projectActiveProfileModsLst} (writes the file and discards
- * the names) and {@link projectAndValidateModsLst} (writes the file
- * and additionally validates the names against deployed state).
+ * Returned by {@link resolveActiveProfileProjection} and consumed by
+ * {@link projectActiveProfileModsLst} (which writes the file and
+ * discards the names).
  */
 interface ActiveProfileProjection {
   /**
@@ -171,11 +163,6 @@ interface ActiveProfileProjection {
  * `undefined` when there is no active profile or the active profile
  * belongs to a different game, so callers can short-circuit without
  * touching the filesystem.
- *
- * Extracted from {@link projectActiveProfileModsLst} so the start hook
- * ({@link projectAndValidateModsLst}) can reuse the exact same
- * projection and add validation without re-implementing the read+sort
- * pipeline.
  *
  * Rethrows `CycleError` with an actionable message (see
  * {@link projectActiveProfileModsLst}).
@@ -228,168 +215,4 @@ async function resolveActiveProfileProjection(
 
   const modsContentDir = paths.modsContentDir(util.getVortexPath('userData'));
   return { modsContentDir, names };
-}
-
-/**
- * A single projected mod that failed launch-time validation (design.md,
- * Launch guard, Hard checks). `reason` is the actionable text the start
- * hook surfaces through the Vortex error dialog.
- */
-export interface ProjectionProblem {
-  /** Vortex mod id when known; empty string for list-only problems. */
-  modId: string;
-  /** Canonical Darktide folder name (`relayModName`). */
-  relayModName: string;
-  /** Human-readable reason this entry failed validation. */
-  reason: string;
-}
-
-/**
- * Outcome of {@link projectAndValidateModsLst}. The deploy and
- * profile-change handlers ignore `problems` and only need the write to
- * happen; the Relay start hook treats `ok === false` as a launch-
- * blocking error (design.md, Launch guard, Hard checks) and consumes `names`
- * for the DMF soft-warning position check (design.md, Launch guard, Soft warning).
- */
-export interface ProjectionResult {
-  /**
-   * `true` when the projection completed and every projected name
-   * passed validation. `false` when one or more problems were
-   * detected; the file is still written (best effort) so any partial
-   * state is consistent with current Vortex state.
-   */
-  ok: boolean;
-  /**
-   * Canonical mod names in authoritative load order, exactly as
-   * written to `mods.lst`. Reflects `util.sortMods` output (NOT
-   * install-state iteration order). Consumed by the Relay start hook
-   * for the DMF-position check so the warning decision uses the same
-   * projected order the loader will see at launch. Empty when there
-   * is no active profile or no enabled mods.
-   */
-  names: string[];
-  /** Each validation failure; empty when `ok === true`. */
-  problems: ProjectionProblem[];
-}
-
-/**
- * Projects the active profile's enabled mods to
- * `<modsContentDir>/mods.lst` and validates the result against the
- * projected names (design.md, Launch guard, Hard checks).
- *
- * Validation set (design.md, Launch guard, Hard checks):
- *
- * - no duplicate `relayModName` values (case-insensitive);
- * - no `relayModName` contains path separators or traversal components;
- * - every listed canonical name passed the installer's safe-name
- *   validation (defense in depth; the installer should already have
- *   rejected unsafe names).
- *
- * Filesystem existence (`<modsContentDir>/<name>/<name>.mod` exists on
- * disk) is intentionally NOT checked here. The start hook performs
- * that check separately so the projection itself stays pure with
- * respect to the mods content directory: the orchestrator writes the
- * projected list, and the hook adds deploy-state validation that
- * depends on the live filesystem at launch time.
- *
- * Returns `ok: true` when there is no active profile or the active
- * profile belongs to a different game; the start hook treats the
- * absence of Darktide state as a separate hard check (design.md, Launch
- * guard, Hard checks) so this function only reports problems it can detect
- * from the projected names themselves.
- *
- * @param api the Vortex extension api.
- */
-export async function projectAndValidateModsLst(
-  api: types.IExtensionApi,
-): Promise<ProjectionResult> {
-  const projection = await resolveActiveProfileProjection(api);
-  if (projection === undefined) {
-    return { ok: true, names: [], problems: [] };
-  }
-  const problems = validateProjectedNames(projection.names);
-  await projectModsLst(projection.modsContentDir, projection.names);
-  return { ok: problems.length === 0, names: projection.names, problems };
-}
-
-/**
- * Pure validation: inspects the projected canonical-name list and
- * returns each failure. Used by {@link projectAndValidateModsLst};
- * exported separately so unit tests cover every rule directly without
- * a Vortex api or filesystem.
- *
- * Rules (design.md, Launch guard, Hard checks):
- *
- * - duplicate names (case-insensitive);
- * - names that fail safe-name validation (separators, traversal,
- *   empty, absolute). The installer's safe-name check is the first
- *   line of defense; this is the defense-in-depth second line.
- */
-export function validateProjectedNames(names: readonly string[]): ProjectionProblem[] {
-  const problems: ProjectionProblem[] = [];
-
-  // Case-insensitive duplicate detection (Windows filesystem semantics
-  // and Relay runtime treat names that differ only in case as the same
-  // folder).
-  const seen = new Map<string, string>();
-  for (const name of names) {
-    if (typeof name !== 'string' || name.length === 0) {
-      continue;
-    }
-    const lower = name.toLowerCase();
-    const firstSeen = seen.get(lower);
-    if (firstSeen !== undefined) {
-      problems.push({
-        modId: '',
-        relayModName: name,
-        reason: `duplicate canonical name "${name}" (already seen as "${firstSeen}")`,
-      });
-    } else {
-      seen.set(lower, name);
-    }
-  }
-
-  // Safe-name validation. The installer's `isSafeCanonicalName` is the
-  // canonical rule; the start hook re-applies it so an unsafe name
-  // reaching this point (for example a manually edited mod attribute
-  // or a future installer regression) cannot write a path-traversal
-  // entry into mods.lst.
-  for (const name of names) {
-    if (typeof name !== 'string' || name.length === 0) {
-      continue;
-    }
-    if (!isSafeCanonicalName(name)) {
-      problems.push({
-        modId: '',
-        relayModName: name,
-        reason: `canonical name "${name}" is unsafe (empty, contains a path separator, or is "."/"..")`,
-      });
-    }
-  }
-
-  return problems;
-}
-
-/**
- * Indicates whether DMF is the first name in the projected list (the
- * soft-warning condition, design.md, Launch guard, Soft warning). Pure helper
- * used by the start hook so the DMF-position logic is unit-testable
- * without an api.
- *
- * Returns `false` when the list is empty or the first name (case-
- * insensitive) is not the DMF canonical name. The check is
- * case-insensitive because Windows filesystems and Relay treat names
- * that differ only in case as the same folder.
- *
- * @param names projected canonical names in load order.
- */
-export function isDmfFirst(names: readonly string[]): boolean {
-  if (names.length === 0) {
-    return false;
-  }
-  const first = names[0];
-  if (typeof first !== 'string' || first.length === 0) {
-    return false;
-  }
-  return first.toLowerCase() === DMF_CANONICAL_NAME;
 }

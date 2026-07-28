@@ -20,7 +20,7 @@ and load-order systems to Darktide mods, and adapts Relay's launcher contract
 to Vortex's supported-tool and launch-hook systems. Vortex does the heavy
 lifting (download, staging, deployment, profiles, the mod list UI); the
 extension adds the Darktide-specific glue (archive recognition, the canonical
-mod layout, `mods.lst` projection, Relay registration, and launch guarding).
+mod layout, `mods.lst` projection, and Relay registration).
 
 The end-to-end flow:
 
@@ -36,9 +36,9 @@ The end-to-end flow:
    extension's `did-deploy` and `profile-did-change` handlers project the
    sorted, enabled mods into `<deployDir>/mods/mods.lst`.
 4. **Launch.** The user clicks Play. Vortex resolves the primary tool
-   (Mod Relay). The extension's start hook validates state, regenerates
-   `mods.lst` one final time, and (when all hard checks pass) hands off.
-   Relay creates Darktide suspended, injects its shell, resumes, and exits.
+   (Mod Relay). Vortex checks for pending deployment and notifies the
+   user. Relay creates Darktide suspended, injects its shell, resumes,
+   and exits.
 
 Mod Relay owns injection and the Lua mod loader. The extension never writes
 inside the Darktide installation and never reimplements Relay's runtime.
@@ -58,9 +58,6 @@ These hold across the extension; the component sections below implement them.
   Vortex's sort places DMF first (Installer, DMF dependency rule).
 - The extension does not register a custom load-order page. Users add further
   `after`/`before` rules via Vortex's built-in mod details UI (Mod ordering).
-- The extension never blocks launch based on DMF state. DMF-absent and
-  DMF-misordered cases surface as a single non-blocking warning that fires at
-  most once per Vortex install (Launch guard).
 - The Darktide folder name is persisted as a mod attribute distinct from the
   Vortex mod ID and the Nexus title. Only the canonical name appears in
   `mods.lst` (Installer).
@@ -100,7 +97,6 @@ Capabilities registered:
   has no separate `context.registerTool` method.
 - `context.registerInstaller(id, priority, testSupported, install)`.
 - `context.registerToolVariables(callback)`.
-- `context.registerStartHook(priority, id, hook)`.
 - `context.registerAction(...)` for each custom user-facing action
   (User-facing actions).
 
@@ -222,9 +218,7 @@ DMF does get a special sort position. The installer emits an `after DMF` rule
 on every non-DMF install (DMF dependency rule) so Vortex's native mod sort
 places DMF first in deployment order. Users may add further `after`/`before`
 rules between specific mods via Vortex's built-in mod details UI; the
-extension does not need a custom load-order page for that. DMF-absent and
-DMF-misordered cases are surfaced as a once-per-install non-blocking
-launch-time warning (Launch guard), never as a hard block.
+extension does not need a custom load-order page for that.
 
 **Safe-name validation.** The canonical name must:
 
@@ -316,7 +310,7 @@ bits.
 `util.sortMods` throws `CycleError` (api.d.ts line 943) when the rule graph
 contains a cycle. The projection rethrows with a message naming the cycle; the
 deploy and profile-change handlers surface this via a non-blocking
-notification. The Relay start hook is the final blocking gate before launch.
+notification.
 
 ### mods.lst projection
 
@@ -333,7 +327,7 @@ enable/disable controls deployment, so a disabled mod is not on disk anyway.
 **Atomic write.** Write a tmp file at `<modsContentDir>/.mods.lst.tmp`, fsync,
 rename to `<modsContentDir>/mods.lst`. On Windows, rename replaces an existing
 destination atomically when the destination is not held open. Relay reads
-`mods.lst` only at launch, and the start hook runs before spawn, so there is
+`mods.lst` only at launch after deployment, so there is
 no open handle to race.
 
 **Projection orchestrator.** `projectActiveProfileModsLst(api: IExtensionApi):
@@ -361,11 +355,9 @@ with a message naming the offending cycle.
    inside `context.once(...)`.
 2. `profile-did-change` handler, registered via
    `api.events.on('profile-did-change', ...)` inside `context.once(...)`.
-3. The Relay start hook (Launch guard).
 
 The deploy and profile-change handlers catch projection failures and surface
-them via `api.showErrorNotification` (non-blocking). The start hook is the
-final blocking gate and re-runs the projection as part of its hard checks.
+them via `api.showErrorNotification` (non-blocking).
 
 ### Relay tool
 
@@ -390,7 +382,7 @@ ride along with their owning game registration. The `ITool` object:
 - `requiredFiles:` includes only `mod_relay.exe`. This is a quick-discovery
   sanity check that picks the bundled Relay directory and rejects look-alikes.
   The extension does not enumerate Relay's internal runtime files here or
-  anywhere else; the start hook likewise verifies only the launcher binary.
+  anywhere else.
 - `defaultPrimary: true`.
 - `exclusive: true`.
 - `parameters: ["--game-binary", "{RELAY_GAME_BINARY}", "--mod-path",
@@ -439,103 +431,6 @@ launched tool process, not necessarily the child game lifetime. Whether
 Vortex detects the `Darktide.exe` child after the launcher exits is a UX
 detail to observe; if it does not, that is a UX issue to address later, not a
 blocker.
-
-### Launch guard
-
-Registered via `context.registerStartHook(5, "mod-relay-launch-guard", hook)`.
-The priority is a low positive integer; start hooks all run before Vortex's
-variable expansion and spawn, so the exact value only orders among multiple
-hooks.
-
-Grounded API signatures (verified against the installed
-`@nexusmods/vortex-api@2.3.0-beta.1` types and the v2.3.0 Vortex source
-`src/renderer/src/ExtensionManager.ts`):
-
-- `IExtensionContext.registerStartHook: (priority: number, id: string, hook:
-  (call: IRunParameters) => PromiseLike<IRunParameters>) => void` (api.d.ts
-  line 3805). The hook returns a `PromiseLike<IRunParameters>`, so an `async`
-  function is the natural shape.
-- `IRunParameters = { executable: string; args: string[]; options:
-  IRunOptions }` (api.d.ts lines 6043-6047). The call object does not carry a
-  tool id; the hook filters by executable path. Confirmed in the v2.3.0 source
-  `ExtensionManager.applyStartHooks` (lines around 2218-2245) and
-  `runExecutable` (lines around 2247-2325): the `executable` field is the
-  resolved absolute path Vortex will pass to `child_process.spawn`.
-- Rejection: `applyStartHooks` calls `.catch` on the hook promise for
-  `UserCanceled`, `ProcessCanceled`, and any other error, then re-rejects with
-  the same error. The launch is aborted and the error surfaces through
-  Vortex's standard error dialog. The hook rejects with
-  `util.ProcessCanceled` (api.d.ts line 7691; re-exported via the `util`
-  namespace at line 9376), the semantically correct "the launch was canceled
-  because of a known precondition" signal.
-- Discovered game path: `selectors.discoveryByGame` is a
-  `ParametricSelector<IState, string, IDiscoveryResult>` (api.d.ts line 1027);
-  `IDiscoveryResult.path?: string` (api.d.ts line 2827) holds the discovered
-  install directory.
-- Notification: `api.sendNotification?: (notification: INotification) =>
-  string` (api.d.ts line 3129). `INotification.type` is one of `activity`,
-  `global`, `success`, `info`, `error` (api.d.ts lines 5541-5558); the soft
-  warning uses `info` so it does not block.
-
-Tool identity: Vortex 2.3 has no separate `context.registerTool` method.
-Supported tools are declared per-game via `IGame.supportedTools: ITool[]`
-(api.d.ts line 4214). `ITool` (api.d.ts lines 6824-6955) carries `id`, `name`,
-`shortName`, `queryPath`, `executable`, `requiredFiles`, `parameters`,
-`environment`, `relative`, `shell`, `exclusive`, `detach`, `defaultPrimary`,
-and `onStart`.
-
-`context.registerToolVariables: (callback: ToolParameterCB) => void` (api.d.ts
-line 3889) registers a single callback. `ToolParameterCB = (options:
-IRunParameters) => { [key: string]: string }` (api.d.ts line 8974). Vortex
-invokes the callback at launch time, after start hooks have run but before
-argument-token expansion; the returned object is merged with other callbacks'
-results and substituted into each parameter token via `string-template`
-formatting (`ExtensionManager.ts` lines around 2320-2324 in v2.3.0).
-
-The hook filters by Relay's executable path (the only tool identity available
-on the call object). If the launch is not for Relay, the hook returns the call
-unchanged.
-
-For Relay launches, the hook runs hard checks (reject on failure) and at most
-one soft warning (never blocks).
-
-**Hard checks (reject on failure):**
-
-1. Confirms the active profile belongs to this game.
-2. Confirms `mod_relay.exe` exists in the bundled Relay directory. Relay's
-   internal runtime layout is Relay's responsibility; the extension verifies
-   only the launcher binary it actually invokes, and any further runtime
-   failure is surfaced by Relay at launch.
-3. Confirms the discovered Darktide binary exists.
-4. Regenerates `mods.lst` via the projection orchestrator and validates the
-   result against deployed state:
-   - every enabled mod's deployed `<name>/<name>.mod` exists on disk;
-   - the projected list matches what `util.sortMods` produces from current
-     mod state (the deploy and profile-change handlers may have written an
-     earlier version; the start hook re-runs the projection so a stale
-     `mods.lst` cannot reach Relay);
-   - no duplicate `relayModName` values in the projected list
-     (case-insensitive);
-   - no `relayModName` contains path separators or traversal components; and
-   - every listed canonical name passed the installer's safe-name validation.
-
-**Soft warning (warn-once-per-install):** if at least one non-DMF mod is
-enabled and (DMF is not enabled or DMF is not the first name in the projected
-`mods.lst` content), and the persisted warn-flag file does not exist, the
-hook surfaces a non-blocking notification via the Vortex API and writes the
-flag file.
-
-Flag file path: `<modRoot>/.dmf-warning-state.json`.
-Flag file contents: `{ "version": 1, "warnedAt": "<ISO 8601 timestamp>" }`.
-
-Once written, the warning never re-fires on this Vortex install, regardless of
-subsequent state changes (DMF later removed, mods added or removed, profile
-switched, Vortex restarted). The first release does not expose a reset action.
-Deleting the file manually re-arms the warning.
-
-**Outcome:** returns the call if all hard checks pass, or rejects with an
-actionable Vortex error identifying which check failed. Soft warnings never
-block. Each hard check produces a distinct message so the user can act on it.
 
 ### User-facing actions
 
@@ -608,4 +503,4 @@ Installation is by drag-dropping the release archive onto Vortex (or manual
 extraction into `%APPDATA%\Vortex\Plugins`) followed by a Vortex restart.
 Because the manifest carries a stable `id`, installing a new version over an
 old one replaces it in place; no uninstall is required. The build commands
-and release workflow are documented in [`../development.md`](../development.md).
+and release workflow are documented in [`../development.md`](../development.md).\n

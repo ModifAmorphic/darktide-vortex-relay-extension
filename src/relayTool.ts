@@ -97,8 +97,8 @@ export const RELAY_MOD_PATH_VAR = 'RELAY_MOD_PATH';
  *
  * `queryPath` returns the bundled runtime directory, so this object is
  * a static const and needs no Vortex api closure. The api-dependent
- * parts of tool launch (variable resolution, start-hook validation)
- * live in `./toolVariables.ts` and `./startHook.ts`.
+ * part of tool launch (variable resolution) lives in
+ * `./toolVariables.ts`.
  */
 export const relayTool: types.ITool = {
   id: RELAY_TOOL_ID,

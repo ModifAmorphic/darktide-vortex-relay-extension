@@ -120,9 +120,7 @@ as a Relay requirement or a Relay-owned root.
   into `did-deploy` and `profile-did-change` event handlers; the
   Relay supported tool (`IGame.supportedTools`), the
   `registerToolVariables` callback that resolves `RELAY_GAME_BINARY`
-  and `RELAY_MOD_PATH` at launch, and the `registerStartHook`
-  launch guard that validates state, regenerates `mods.lst`, and emits
-  a once-per-install DMF warning; and two user-facing open-directory
+  and `RELAY_MOD_PATH` at launch; and two user-facing open-directory
   actions registered on the `game-managed-buttons` group (Open Relay
   log directory, Open Darktide console-log directory). "Launch modded
   with Mod Relay" is Vortex's built-in primary-tool launch (the Relay
@@ -162,7 +160,7 @@ PR.
 - [x] Step 4: `mods.lst` projection and atomic write (PR #6)
 - [x] Step 5: Auto DMF dependency rules and sortMods-based mods.lst projection
   (PR #7)
-- [x] Step 6: Relay tool, tool variables, and start hook (PR #8)
+- [x] Step 6: Relay tool and tool variables (PR #8)
 - [x] Step 7: User-facing actions (pending operator Vortex render
   verification; PR to be opened by the operator after the actions are
   confirmed to render on the Games tab Darktide tile)
@@ -226,7 +224,7 @@ src/
   index.ts
     Entry; default-exports main(context). Registers the Darktide game and
     the `.mod` archive installer; registers the Relay tool variables
-    callback and the launch-guard start hook; registers the two
+     callback; registers the two
     user-facing open-directory actions via registerActions; registers
     did-deploy and profile-did-change handlers inside context.once that
     project mods.lst. The Relay tool itself is registered via the
@@ -237,8 +235,8 @@ src/
     name, DMF canonical name, DMF Nexus mod id, mod-directory layout
     subdirectory names, Relay tool id/name and the launcher executable
     (the only Relay file the extension names; Relay's internal runtime
-    layout is not enumerated), the DMF warning flag file name/version,
-    and the Darktide console-log directory path segments.
+     layout is not enumerated), and the Darktide console-log directory
+     path segments.
   paths.ts
     Pure path helpers (modRoot, deployDir, modsContentDir, loadOrderDir)
     under Vortex userData, plus relayDir() which resolves the bundled
@@ -267,9 +265,7 @@ src/
     projectModsLst composes serialization with atomic write to
     `<modsContentDir>/mods.lst`; projectActiveProfileModsLst orchestrates
     the full path from live Vortex state through util.sortMods to the
-    atomic write; projectAndValidateModsLst runs the same projection and
-    additionally returns validation problems (duplicates, unsafe names)
-    for the start hook. Imports util and selectors from
+     atomic write. Imports util and selectors from
     @nexusmods/vortex-api.
   relayTool.ts
     The Mod Relay ITool registration object (id, name, shortName,
@@ -283,17 +279,6 @@ src/
     closes over the Vortex api to resolve RELAY_GAME_BINARY (from
     selectors.discoveryByGame) and RELAY_MOD_PATH (from
     paths.deployDir(util.getVortexPath('userData'))).
-  startHook.ts
-    The registerStartHook launch guard. createStartHook closes over the
-    Vortex api; the hook filters by Relay's executable path, runs four
-    hard checks (active profile game id, Relay runtime files present,
-    discovered Darktide binary present, projected mods.lst validates
-    and deployed <name>/<name>.mod files exist), and emits a
-    once-per-install DMF soft warning via sendNotification +
-    .dmf-warning-state.json flag file. Pure helpers (isRelayLaunch,
-    missingRelayFiles, validateDeployedModsLstEntries, decideDmfWarning,
-    readDmfWarningFlag, persistDmfWarningFlag) are exported for unit
-    testing.
   actions.ts
     User-facing open-directory actions (design.md, User-facing actions).
     registerActions(context) registers two actions on the
@@ -374,7 +359,7 @@ test/
     including queryModPath and getModPaths both returning modsContentDir.
   index.test.ts
     Unit tests for the entry's registerGame and registerInstaller wiring,
-    the registerToolVariables and registerStartHook wiring, the
+    the registerToolVariables wiring, the
     registerAction wiring for the two open-directory actions, and the
     did-deploy / profile-did-change handler registration.
   installer.test.ts
@@ -393,25 +378,13 @@ test/
   relayTool.test.ts
     Unit tests for the Relay ITool object (id/name/shortName, queryPath,
     executable, requiredFiles = [mod_relay.exe], parameter tokens, no
-    shell quoting, no environment, defaultPrimary and exclusive flags)
-    and the DMF warning flag filename.
+     shell quoting, no environment, defaultPrimary and exclusive flags).
   toolVariables.test.ts
     Unit tests for createToolVariablesCallback (returns both
     RELAY_GAME_BINARY and RELAY_MOD_PATH, resolves the discovered
     game path and the Vortex userData deploy dir, returns empty for
     RELAY_GAME_BINARY when discovery is missing, scoped to the
     Darktide game id).
-  startHook.test.ts
-    Unit tests for the launch guard: isRelayLaunch filter (case-
-    insensitive, separator-tolerant, basename-must-match-directory);
-    missingRelayFiles (full, partial, directory-missing cases);
-    validateProjectedNames (duplicates, separators, traversal, empty);
-    validateDeployedModsLstEntries (present, missing, unsafe);
-    projectAndValidateModsLst (clean projection, no active profile, wrong
-    game, validation problems still write the file); every hard check's
-    pass and fail path; the DMF soft warning's pure decision, flag-file
-    read/write/parse, and fire-once hook wiring; rejection mechanism
-    (ProcessCanceled with distinct per-check messages).
   actions.test.ts
     Unit tests for the user-facing actions: ACTION_GROUP constant;
     resolveConsoleLogsDir (provided APPDATA, undefined APPDATA, empty
@@ -455,7 +428,7 @@ test/
       Runtime stub for the types-only @nexusmods/vortex-api package so
       Vitest can resolve value imports (util, fs, selectors); per-test
       vi.mock overrides it. Provides default no-op sortMods, opn,
-      activeProfile, discoveryByGame, and ProcessCanceled stubs.
+      activeProfile and discoveryByGame stubs.
 docs/
   architecture/
     design.md
@@ -701,7 +674,8 @@ Design pure seams so most behavior does not require Vortex or Darktide:
 - profile-specific order persistence;
 - `mods.lst` serialization and atomic replacement;
 - Relay argument assembly as distinct tokens; and
-- start-hook filtering/validation.
+- start-hook filtering/validation (removed: Vortex's built-in
+  pending-deployment check handles pre-launch validation).
 
 Prefer fixtures representing real archive shapes, but do not commit third-party
 mod payloads without permission. Minimal synthetic fixtures should encode the

@@ -9,7 +9,6 @@ import {
   PRIMARY_TOOL_TEST_EVENT,
   PRIMARY_TOOL_TEST_ID,
 } from './primaryTool';
-import { createStartHook, START_HOOK_ID, START_HOOK_PRIORITY } from './startHook';
 import { createToolVariablesCallback } from './toolVariables';
 
 /**
@@ -31,8 +30,6 @@ import { createToolVariablesCallback } from './toolVariables';
  *   launch time so Relay's `--game-binary` and `--mod-path` arguments
  *   receive the discovered Darktide install and the extension's deploy
  *   directory.
- * - The launch-guard start hook, which validates state and regenerates
- *   `mods.lst` immediately before Relay launches (design.md, Launch guard).
  * - Primary-tool auto-promotion. Vortex 2.3 and 2.4 ignore
  *   `ITool.defaultPrimary`, so a `registerTest('gamemode-activated', ...)`
  *   check promotes Relay to the primary tool for Darktide when no
@@ -45,8 +42,8 @@ import { createToolVariablesCallback } from './toolVariables';
  *   "Launch modded" and "Open Mod Folder" capabilities are Vortex
  *   built-ins (primary-tool launch and `getModPaths`) and are NOT
  *   registered separately here.
- * - The two non-Relay `mods.lst` projection call sites (`did-deploy` and
- *   `profile-did-change`); the Relay start hook is the third call site.
+ * - The two `mods.lst` projection call sites (`did-deploy` and
+ *   `profile-did-change`).
  *
  * The extension does NOT register a custom load order. Vortex's built-in
  * mod sort (`util.sortMods`) resolves deploy order from the rules the
@@ -76,8 +73,6 @@ import { createToolVariablesCallback } from './toolVariables';
  *   guards with `?.`; in practice Vortex always supplies it.
  * - `context.registerToolVariables: (callback: ToolParameterCB) => void`
  *   (api.d.ts line 3889).
- * - `context.registerStartHook: (priority, id, hook) => void`
- *   (api.d.ts line 3805).
  * - `context.registerAction: RegisterAction` (api.d.ts line 3499).
  *
  * @param context the Vortex extension context supplied at load time.
@@ -95,7 +90,6 @@ function main(context: types.IExtensionContext): boolean {
   );
 
   context.registerToolVariables(createToolVariablesCallback(context.api));
-  context.registerStartHook(START_HOOK_PRIORITY, START_HOOK_ID, createStartHook(context.api));
 
   registerActions(context);
 
@@ -123,8 +117,7 @@ function main(context: types.IExtensionContext): boolean {
   // extensions are initialized first. Both handlers project mods.lst
   // from the active profile's sorted enabled mods; both swallow
   // projection errors so they never block the underlying Vortex
-  // operation. The Relay start hook is the final blocking gate
-  // before launch.
+  // operation.
   context.once(() => {
     const api = context.api;
 
@@ -134,8 +127,7 @@ function main(context: types.IExtensionContext): boolean {
         await projectActiveProfileModsLst(api);
       } catch (err) {
         // Non-blocking: deploy succeeded, the user can fix state and
-        // redeploy. The Relay start hook will catch any remaining
-        // inconsistency before launch.
+        // redeploy.
         api.showErrorNotification?.('Darktide mods.lst projection failed', err, {
           allowReport: false,
           warning: true,

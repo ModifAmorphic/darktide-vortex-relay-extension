@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  DMF_WARNING_FILE_NAME,
   RELAY_EXECUTABLE,
   RELAY_TOOL_ID,
   RELAY_TOOL_NAME,
@@ -135,10 +134,6 @@ describe('relayTool parameters', () => {
 });
 
 describe('Relay constants consistency', () => {
-  it('uses the same DMF warning filename as the start hook', () => {
-    expect(DMF_WARNING_FILE_NAME).toBe('.dmf-warning-state.json');
-  });
-
   it('exposes mod_relay.exe as the single Relay filename the extension knows', () => {
     expect(RELAY_EXECUTABLE).toBe('mod_relay.exe');
     // The requiredFiles list derives solely from RELAY_EXECUTABLE; this
