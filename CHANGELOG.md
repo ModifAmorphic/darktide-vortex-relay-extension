@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/compare/v0.1.1...v0.1.2) (2026-07-28)
+
+
+### Bug Fixes
+
+* **release:** attest the release archive ([#9](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/issues/9)) ([353e640](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/commit/353e640042c4195b7403c0be908f65a482eacda0))
+
 ## [0.1.1](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/compare/v0.1.0...v0.1.1) (2026-07-28)
 
 
