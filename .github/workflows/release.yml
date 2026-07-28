@@ -36,6 +36,10 @@ jobs:
     runs-on: windows-latest
     needs: release-please
     if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -87,3 +91,8 @@ jobs:
         run: |
           set -euo pipefail
           gh release upload "${{ needs.release-please.outputs.tag_name }}" "${{ steps.find_archive.outputs.archive_path }}" --clobber
+
+      - name: Attest release archive
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ steps.find_archive.outputs.archive_path }}
