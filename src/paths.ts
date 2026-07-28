@@ -88,9 +88,10 @@ export function loadOrderDir(vortexUserData: string): string {
  * Returns the absolute path of the bundled Relay runtime directory.
  *
  * Resolved at runtime relative to the loaded extension module via
- * `__dirname`, so it works both in the built extension (`dist/index.js`
- * sits in the extension install directory alongside `relay/`) and during
- * dev iteration (`dev-install` copies `relay/` next to `index.js`).
+ * `__dirname`. The built `index.js` and the bundled `relay/` tree ship
+ * beside each other in the Vortex-managed extension install directory
+ * (`pnpm package` assembles the archive with `relay/` at the root, and
+ * Vortex installs it that way).
  *
  * `__dirname` is available because Rolldown emits CommonJS for the Node
  * platform (design.md, Mod directory). Verified at implementation time: the bundled
