@@ -111,8 +111,7 @@ as a Relay requirement or a Relay-owned root.
 - **`main`** -- documentation seed plus the production toolchain foundation
   (TypeScript, Rolldown, Vitest, ESLint, Prettier, GitHub Actions CI) and
   the extension capabilities through step 7: Darktide game registration
-  with `setup`, `queryModPath`, and a `dev:install` script for live
-  iteration; the `.mod` archive installer that recognizes Darktide mods,
+  with `setup` and `queryModPath`; the `.mod` archive installer that recognizes Darktide mods,
   normalizes them into the canonical `<name>/<name>.mod` layout, persists
   the `relayModName` attribute, auto-emits an `after DMF` dependency rule
   for non-DMF mods, and rejects ambiguous or unsafe archives; the pure
@@ -182,7 +181,7 @@ AGENTS.md
 LICENSE
   GPL-3.0 project license.
 info.json
-  Vortex extension manifest (name, author, version, description).
+  Vortex extension manifest (name, id, author, version, description).
 gameart.png
   640x360 Vortex game art (placeholder pending real art).
 package.json
@@ -313,6 +312,11 @@ src/
     getModPaths) and are NOT registered here. Pure helpers
     (resolveConsoleLogsDir, dirExistsSync) and the ACTION_GROUP
     constant are exported for unit testing.
+    Launch options (Relay flags such as `--lua-logs` and `--skip-splash`,
+    plus forwarded game args after `--`) are configured through Vortex's
+    built-in tool editor (Tools -> Mod Relay -> Edit -> Command Line),
+    not a custom action or settings panel; the extension meets Vortex at
+    that contract surface. See README (Launch options).
   util/
     names.ts
       Pure safe-name validation: isSafeCanonicalName, findDuplicateNames.
@@ -330,11 +334,6 @@ scripts/
   package.json
     Scopes scripts/ to ES modules so Node 24 type-strips dev .ts files
     directly (the repo root remains "type": "commonjs" for built output).
-  dev-install.ts
-    Builds and copies artifacts into a Vortex plugins directory for live
-    iteration. Copies info.json, gameart.png, dist/index.js (renamed to
-    index.js), and (when present) the repo-root relay/ runtime directory.
-    Run via `pnpm dev:install --target <dir>`.
   bundle-relay.ts
     Fetches the latest Mod Relay release (pre-release inclusive) from the
     GitHub releases API, downloads the `-windows-x64.zip` asset, and
@@ -363,9 +362,9 @@ scripts/
     (readInfoVersion, composeArchivePath, assertArchiveRoot) are
     exported for unit testing.
   README.md
-    Operator-facing verification checklist. Run `pnpm dev:install`, then
-    work through the per-step checks documented there. Grows as
-    implementation steps land.
+    Operator-facing verification checklist. Run `pnpm package` and install
+    the archive into Vortex, then work through the per-step checks
+    documented there. Grows as implementation steps land.
 test/
   paths.test.ts
     Unit tests for the path helpers exercising Windows path composition
@@ -482,14 +481,21 @@ planned directory as if it already exists.
 
 ## Version grounding
 
-The current reference baseline is:
+The extension targets Vortex's stable extension API, not a specific patch.
+The reference baseline is the Vortex 2.3 line, tested against 2.3 and 2.4:
 
-- Vortex `2.3.0`, tag `v2.3.0`, commit `a5a9583`.
-- `@nexusmods/vortex-api` `2.3.0-beta.1`.
+- Vortex `2.3+` (developed against 2.3.0; verified on 2.4.0). A Vortex minor
+  bump should not require changes here unless Nexus ships a breaking change
+  in a non-major release, which it should not.
+- `@nexusmods/vortex-api` `2.3.0-beta.1` (the types package the build
+  depends on; pinned in `package.json`).
 - Mod Relay (current release of
   https://github.com/ModifAmorphic/darktide-mod-relay), using its current
   published launcher and loader contract.
 - Windows as the only supported Vortex host.
+
+Re-ground only if Vortex or Relay ships a breaking change that affects a
+contract the extension depends on.
 
 Do not trust training data for Vortex, Electron, Node, TypeScript, bundler, or
 Relay version-specific behavior. Before deciding an API or build approach:
@@ -527,7 +533,12 @@ index.js
 <optional assets and subdirectories>
 ```
 
-- `info.json` carries mandatory name, author, SemVer version, and description.
+- `info.json` carries mandatory name, author, SemVer version, and description,
+  plus a stable `id` (the extension's machine identity). Vortex's installer
+  derives the install directory from `id` and uses it to recognize prior
+  installs, so a new version drag-dropped over an old one replaces it cleanly
+  without an uninstall first; without an `id` it falls back to the archive
+  basename and each version installs side-by-side and conflicts.
 - `gameart.png` is 640 x 360, PNG, no more than 1 MB, with no title text.
 - Vortex loads built JavaScript. If source is TypeScript, it must compile to
   `index.js`.
@@ -640,9 +651,6 @@ for the toolchain versions and grounding date):
 - `pnpm format` -- apply Prettier formatting in place.
 - `pnpm test` -- run the Vitest unit suite.
 - `pnpm build` -- bundle `src/index.ts` to `dist/index.js` via Rolldown.
-- `pnpm dev:install` -- build and copy artifacts into a Vortex plugins
-  directory (requires `--target <dir>` or `VORTEX_PLUGINS_DIR`; see
-  `scripts/README.md`).
 - `pnpm bundle:relay` -- fetch the latest Mod Relay release into `relay/`
   (`scripts/bundle-relay.ts`). Optional `GITHUB_TOKEN` raises the API rate
   limit; `--out <dir>` overrides the target directory.

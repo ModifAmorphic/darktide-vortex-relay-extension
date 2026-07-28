@@ -106,7 +106,7 @@ interface Options {
 
 /**
  * Error subclass for operator-fixable failures. Carries a clean message
- * without a noisy stack trace, mirroring `dev-install.ts`.
+ * without a noisy stack trace, mirroring `package.ts`.
  */
 class UserError extends Error {
   constructor(message: string) {
@@ -453,8 +453,8 @@ async function main(): Promise<void> {
       `  asset:  ${asset.name} (${formatSize(asset.size)})`,
       `  on disk: ${formatSize(sizeSummary)} total`,
       '',
-      'Next: run `pnpm dev:install` for local iteration, or ' +
-        '`pnpm package` to assemble the distributable archive.',
+      'Next: run `pnpm package` to assemble the distributable archive, ' +
+        'then drop it into Vortex to install.',
     ];
     console.log(lines.join('\n'));
   } catch (err) {

@@ -1,5 +1,6 @@
 {
   "name": "Game: Warhammer 40,000: Darktide",
+  "id": "game-darktide-relay",
   "author": "ModifAmorphic",
   "version": "0.1.0",
   "description": "Darktide support for Vortex through Mod Relay"

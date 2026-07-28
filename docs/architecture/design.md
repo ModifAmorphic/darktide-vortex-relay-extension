@@ -1,8 +1,8 @@
 # Darktide Relay Vortex extension architecture
 
 **Status:** selected production design
-**Baseline:** Vortex 2.3.0 on Windows; Mod Relay (current release of
-https://github.com/ModifAmorphic/darktide-mod-relay)
+**Baseline:** Vortex 2.3+ on Windows (verified on 2.4); Mod Relay (current
+release of https://github.com/ModifAmorphic/darktide-mod-relay)
 
 This document describes the architecture of the Darktide Relay Vortex
 extension: the components, how they fit together, the contracts between the
@@ -69,18 +69,20 @@ These hold across the extension; the component sections below implement them.
 
 ## Version baseline
 
-Grounded against the Vortex 2.3.0 source and the matching API types package.
-Re-ground if the target Vortex or Relay version changes.
+The extension targets Vortex's stable extension API, not a specific patch.
+The design is grounded against the Vortex 2.3 line (verified on 2.3 and 2.4)
+and the matching API types package. A Vortex minor bump should not require
+changes here unless Nexus ships a breaking change the extension depends on.
 
 | Component | Version | Source |
 | --- | --- | --- |
-| Vortex | 2.3.0 (commit `a5a9583`) | git tag `v2.3.0` |
-| Extension API types | 2.3.0-beta.1 | npm `@nexusmods/vortex-api` |
+| Vortex | 2.3+ (verified on 2.3 and 2.4) | stable extension API line |
+| Extension API types | 2.3.0-beta.1 | npm `@nexusmods/vortex-api` (build dep) |
 | Mod Relay | current release of https://github.com/ModifAmorphic/darktide-mod-relay | Relay release archive |
-| Target host | Windows | Vortex 2.3 release |
+| Target host | Windows | Vortex Windows build |
 
-Vortex API behavior referenced in this document comes from the v2.3.0 source
-and the 2.3.0-beta.1 types package. The scoped `@nexusmods/vortex-api`
+Vortex API behavior referenced in this document comes from the Vortex 2.3
+source line and the 2.3.0-beta.1 types package. The scoped `@nexusmods/vortex-api`
 import is supported at runtime by Vortex's extension require wrapper, which
 intercepts both the scoped and the legacy unscoped name.
 
@@ -416,9 +418,16 @@ Both resolve from current Vortex state (active game discovery and the
 extension's path constants). Neither depends on profile-specific values that
 change between profile switches.
 
-**Forwarded Darktide arguments.** None in the first release. The `--`
-separator is documented in Relay's contract; future releases can forward
-Darktide arguments after it.
+**Relay flags and forwarded Darktide arguments.** The extension ships only
+the two required parameters (`--game-binary`, `--mod-path`) as static
+defaults. Users add optional Relay flags (`--lua-logs`, `--skip-splash`) and
+forwarded game arguments (after Relay's `--` separator) through Vortex's
+built-in tool editor (Tools page -> Mod Relay -> Edit -> Command Line). The
+extension deliberately does not add a custom UI for this; it meets Vortex at
+the contract surface Vortex already provides for per-tool command-line
+editing. Vortex pre-fills the field with the static parameters, so the user
+appends to them and preserves the `{RELAY_GAME_BINARY}` / `{RELAY_MOD_PATH}`
+placeholders, which the extension resolves at launch (User-facing actions).
 
 **Working directory and child lifetime.** Vortex uses the executable's parent
 directory as the working directory when no tool working directory is supplied.
@@ -579,7 +588,10 @@ relay/
   <other Relay runtime files, shipped verbatim>
 ```
 
-`info.json` carries mandatory name, author, SemVer version, and description.
+`info.json` carries mandatory name, author, SemVer version, and description,
+plus a stable `id` (the extension's machine identity). Vortex derives the
+install directory from `id` and recognizes prior installs by it, so a new
+release replaces the old one cleanly without an uninstall first.
 `gameart.png` is 640 x 360, PNG, no more than 1 MB, no title text. Vortex
 loads built JavaScript; TypeScript source compiles to `index.js`. The Vortex
 2.3 runtime resolves both `vortex-api` and `@nexusmods/vortex-api`; new code
@@ -592,6 +604,8 @@ legally-compliant runtime (GPL-3.0 `LICENSE` and `THIRD_PARTY_NOTICES.md`
 travel inside the release zip), and the extension redistributes whatever Relay
 ships verbatim; the only file the extension gates on is `mod_relay.exe`.
 
-Installation is by manual extraction to `%APPDATA%\Vortex\Plugins` and a
-Vortex restart. The build commands and release workflow are documented in
-[`../development.md`](../development.md).
+Installation is by drag-dropping the release archive onto Vortex (or manual
+extraction into `%APPDATA%\Vortex\Plugins`) followed by a Vortex restart.
+Because the manifest carries a stable `id`, installing a new version over an
+old one replaces it in place; no uninstall is required. The build commands
+and release workflow are documented in [`../development.md`](../development.md).

@@ -71,7 +71,7 @@ interface Options {
 
 /**
  * Error subclass for operator-fixable failures. Carries a clean message
- * without a noisy stack trace, mirroring `dev-install.ts`.
+ * without a noisy stack trace, mirroring `bundle-relay.ts`.
  */
 class UserError extends Error {
   constructor(message: string) {

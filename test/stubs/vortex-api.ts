@@ -75,3 +75,18 @@ export const selectors = {
     return undefined;
   },
 };
+
+/**
+ * Minimal `actions` namespace stub. `actions.setPrimaryTool` is the only
+ * action creator the extension value-imports (from `./primaryTool.ts`);
+ * the stub returns an opaque sentinel so modules that value-import
+ * `actions` load cleanly. Tests that assert on the dispatch path use a
+ * `store.dispatch` spy and (when they need to assert on the action
+ * object itself) a `vi.mock('@nexusmods/vortex-api', ...)` override
+ * matching the pattern used for `util` and `selectors`.
+ */
+export const actions = {
+  setPrimaryTool(_gameId: string, _toolId: string): unknown {
+    return { type: 'set-primary-tool', gameId: _gameId, toolId: _toolId };
+  },
+};
