@@ -41,8 +41,8 @@ describe('util/archive', () => {
     });
 
     it('rejects directory entries that end with .mod/', () => {
-      // A directory named `something.mod` is not a `.mod` file. Vortex
-      // represents directories with a trailing separator.
+      // A directory named something.mod is not a .mod file; Vortex marks
+      // directories with a trailing separator.
       expect(findModCandidates(['something.mod/', 'something.mod/example.mod'])).toEqual([
         'something.mod/example.mod',
       ]);
@@ -53,7 +53,6 @@ describe('util/archive', () => {
     });
 
     it('ignores the .mod extension only at the end of the basename', () => {
-      // `foo.mod.txt` is not a `.mod` file.
       expect(findModCandidates(['foo.mod.txt', 'real.mod'])).toEqual(['real.mod']);
     });
 
@@ -86,9 +85,9 @@ describe('util/archive', () => {
     });
 
     it('handles a file literally named .mod (returns empty)', () => {
-      // Defensive: basename minus `.mod` extension is empty string. The
-      // caller must run the result through isSafeCanonicalName, which
-      // rejects empty.
+      // Defensive: basename minus .mod extension is empty; the caller
+      // must run the result through isSafeCanonicalName, which rejects
+      // empty.
       expect(deriveCanonicalName('.mod')).toBe('');
     });
 
@@ -176,10 +175,10 @@ describe('util/archive', () => {
     });
 
     it('groups ancestor-descendant candidates together (single-wrapper case)', () => {
-      // Both .mod entries live under the same nested wrapper; one is in a
-      // subdirectory of the other. They form one logical subtree, so one
-      // group. (The installer separately rejects multiple .mod entries in
-      // one subtree as ambiguous; grouping only classifies relatedness.)
+      // Both .mod entries live under the same nested wrapper, so one
+      // group. (The installer separately rejects multiple .mod entries
+      // in one subtree as ambiguous; grouping only classifies
+      // relatedness.)
       const result = groupBySubtreeRoot(['a/example.mod', 'a/sub/inner.mod']);
       expect(result.size).toBe(1);
     });
@@ -190,32 +189,30 @@ describe('util/archive', () => {
     });
 
     it('treats a root-level .mod as its own group, separate from a subdir .mod', () => {
-      // A `.mod` at the archive root and one inside a subdirectory are not
-      // one wrapper layout; they are two unrelated roots.
+      // A .mod at the archive root and one inside a subdirectory are two
+      // unrelated roots, not a wrapper layout.
       const result = groupBySubtreeRoot(['root.mod', 'sub/inner.mod']);
       expect(result.size).toBe(2);
     });
 
     it('groups two root-level .mod entries together (same containing dir: empty)', () => {
-      // Both at archive root: same containing directory `''`, so same group.
       const result = groupBySubtreeRoot(['a.mod', 'b.mod']);
       expect(result.size).toBe(1);
     });
 
     it('uses transitive grouping: ancestor of A and ancestor of C means A,B,C together', () => {
-      // a/ is ancestor of a/b/ which is ancestor of a/b/c/. All same group.
       const result = groupBySubtreeRoot(['a/x.mod', 'a/b/y.mod', 'a/b/c/z.mod']);
       expect(result.size).toBe(1);
     });
 
     it('does not group sibling directories whose names share a prefix', () => {
-      // `abc/` and `abd/` are siblings; neither is an ancestor of the other.
+      // abc/ and abd/ are siblings; neither is an ancestor of the other.
       const result = groupBySubtreeRoot(['abc/x.mod', 'abd/y.mod']);
       expect(result.size).toBe(2);
     });
 
     it('groups mixed-separator paths correctly', () => {
-      // Forward and back slashes should normalize during comparison.
+      // Forward and back slashes normalize during comparison.
       const result = groupBySubtreeRoot(['a/b/x.mod', 'a\\b\\y.mod']);
       expect(result.size).toBe(1);
     });

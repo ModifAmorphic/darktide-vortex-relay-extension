@@ -17,32 +17,28 @@ import {
 import * as pathsModule from '../src/paths';
 
 /**
- * The action module closes over the Vortex api for `util.opn` and the
- * notification helpers, and resolves paths through `paths.relayDir` and
- * `process.env.APPDATA`. Tests control `util.opn` and `paths.relayDir`
- * via module-level mocks; `process.env.APPDATA` is saved and restored so
- * the pure-helper tests can mutate it without leaking into other suites.
- *
- * Filesystem-touching tests for `dirExistsSync` use a per-test tmp
- * directory under `os.tmpdir()`, matching the isolation pattern in
- * `startHook.test.ts`.
+ * The action module closes over the Vortex api for util.opn and the
+ * notification helpers, and resolves paths through paths.relayDir and
+ * process.env.APPDATA. Tests control util.opn and paths.relayDir via
+ * module-level mocks; process.env.APPDATA is saved and restored so the
+ * pure-helper tests can mutate it without leaking into other suites.
+ * Filesystem-touching tests for dirExistsSync use a per-test tmp
+ * directory under os.tmpdir().
  */
 
 vi.mock('@nexusmods/vortex-api', () => ({
   util: {
-    // `opn` is the open-directory primitive. The default is a no-op spy
-    // so handlers do not trigger unhandled rejections; tests that need
-    // to assert on calls or simulate failures override the mock in
-    // beforeEach via vi.mocked(util.opn).
+    // opn is the open-directory primitive; default is a no-op spy so
+    // handlers do not trigger unhandled rejections. Tests that assert on
+    // calls or simulate failures override it in beforeEach.
     opn: vi.fn(async (_target: string) => undefined),
     getVortexPath: vi.fn(() => '/stub/vortex/userData'),
   },
 }));
 
 vi.mock('../src/paths', () => ({
-  // relayDir is the only paths export the action module consumes. Stub
-  // it as a vi.fn so each test can point it at a per-test path (or, for
-  // pure-helper tests, leave it as the default).
+  // relayDir is the only paths export the action module consumes; stub
+  // it as a vi.fn so each test can point it at a per-test path.
   relayDir: vi.fn(() => '/test/relay'),
   modRoot: vi.fn(() => '/test/modRoot'),
   deployDir: vi.fn(() => '/test/deploy'),
@@ -72,7 +68,7 @@ afterEach(async () => {
   await fs.rm(dir, { recursive: true, force: true });
 });
 
-/** Builds a stub api that records showErrorNotification and sendNotification calls. */
+/** Stubs api recording showErrorNotification and sendNotification calls. */
 function stubApi(): types.IExtensionApi {
   return {
     showErrorNotification: vi.fn(),
@@ -80,7 +76,7 @@ function stubApi(): types.IExtensionApi {
   } as unknown as types.IExtensionApi;
 }
 
-/** Builds a stub extension context whose registerAction is a spy. */
+/** Stubs extension context whose registerAction is a spy. */
 function stubContext(): types.IExtensionContext & {
   registerAction: ReturnType<typeof vi.fn>;
 } {
@@ -92,7 +88,7 @@ function stubContext(): types.IExtensionContext & {
   };
 }
 
-/** Returns the per-action registration args captured by registerAction. */
+/** Per-action registration args captured by registerAction. */
 function registrations(ctx: ReturnType<typeof stubContext>): Array<{
   group: string;
   position: number;
@@ -115,10 +111,9 @@ function registrations(ctx: ReturnType<typeof stubContext>): Array<{
 
 describe('ACTION_GROUP constant', () => {
   it("is 'game-managed-buttons' so actions render on the dashboard tile", () => {
-    // The API types accept any string for the group parameter; only
-    // Vortex's renderer knows the valid values. A wrong guess here
-    // compiles but renders nothing. This is the one-line fix point if
-    // the operator's verification shows the actions do not appear.
+    // The API type accepts any string for the group parameter; a wrong
+    // guess compiles but renders nothing. This is the fix point if the
+    // operator's verification shows the actions do not appear.
     expect(ACTION_GROUP).toBe('game-managed-buttons');
   });
 });
@@ -136,10 +131,9 @@ describe('resolveConsoleLogsDir', () => {
   });
 
   it('joins segments onto an empty APPDATA string (does NOT return null)', () => {
-    // Node's path.join('', 'Fatshark', 'Darktide', 'console_logs')
-    // yields a relative path; we surface the actual behavior rather
-    // than pretend the helper returns null for an empty APPDATA. An
-    // empty APPDATA is a real misconfiguration the user should notice.
+    // path.join('', ...) yields a relative path; an empty APPDATA is a
+    // real misconfiguration the user should notice, so we surface it
+    // rather than return null.
     const result = resolveConsoleLogsDir('');
     expect(result).toBe(path.join('Fatshark', 'Darktide', 'console_logs'));
     expect(result).not.toBeNull();
@@ -164,9 +158,8 @@ describe('dirExistsSync', () => {
   });
 
   it('returns true for a file (thin wrapper over fs.existsSync)', async () => {
-    // existsSync does not distinguish files from directories; the
-    // console-log handler calls it on a directory path, but documenting
-    // the file behavior here keeps the contract honest.
+    // existsSync does not distinguish files from directories; document
+    // the file behavior so the contract stays honest.
     const file = path.join(dir, 'file.txt');
     await fs.writeFile(file, 'placeholder');
     expect(dirExistsSync(file)).toBe(true);
@@ -259,8 +252,7 @@ describe('action conditions (gate on Darktide dashboard tile)', () => {
   });
 
   it('each condition returns false when instanceIds is undefined', () => {
-    // Vortex always passes an instanceIds array on game-managed-buttons,
-    // but defending against undefined keeps the gate from throwing on a
+    // Defending against undefined keeps the gate from throwing on a
     // future call-site change.
     const ctx = stubContext();
     registerActions(ctx);
@@ -279,8 +271,7 @@ describe('action conditions (gate on Darktide dashboard tile)', () => {
 
   it('conditions return a strict boolean (never a string)', () => {
     // The API type allows string returns, but the renderer treats only
-    // `false` as hidden. Strings are visible; we keep conditions boolean
-    // so the intent is explicit.
+    // `false` as hidden; strings are visible.
     const ctx = stubContext();
     registerActions(ctx);
     for (const reg of registrations(ctx)) {
@@ -349,10 +340,9 @@ describe('Open Relay log directory handler', () => {
   });
 
   it('returns void at runtime (does not return the opn promise)', () => {
-    // Vortex overloads the 6th positional arg: a boolean return is
-    // interpreted as a condition, not a handler. Returning a Promise is
-    // fine because it is an object, but the declared contract is `void`.
-    // Asserting `undefined` here documents the runtime shape.
+    // Vortex overloads the 6th positional arg: a boolean return is read
+    // as a condition, not a handler. Asserting undefined documents the
+    // runtime shape.
     const ctx = stubContext();
     registerActions(ctx);
     const reg = registrations(ctx).find((r) => r.title === RELAY_LOG_TITLE)!;

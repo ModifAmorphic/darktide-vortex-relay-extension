@@ -59,15 +59,13 @@ describe('relayTool registration', () => {
   });
 
   it('returns the bundled relay directory from queryPath', () => {
-    // queryPath resolves at runtime via __dirname; the test only asserts
-    // the result is a non-empty string ending with the expected segment.
-    // The exact value depends on where the test process loaded the
-    // module from, so a strict-equality assertion would be host-specific.
+    // queryPath resolves at runtime via __dirname, so the prefix is
+    // host-specific; assert only the final segment.
     const result = relayTool.queryPath?.() as string | undefined;
     expect(typeof result).toBe('string');
     expect(result!.length).toBeGreaterThan(0);
-    // On Windows path.sep is '\\' but Node tolerates forward slashes
-    // too; assert the final segment regardless of separator.
+    // Node tolerates forward slashes on Windows; assert the final segment
+    // regardless of separator.
     expect(result!.split(/[\\/]/).pop()).toBe('relay');
   });
 });
@@ -75,14 +73,12 @@ describe('relayTool registration', () => {
 describe('relayTool requiredFiles', () => {
   it('lists only the launcher binary the extension actually invokes', () => {
     // The extension treats Relay as an opaque unit; Vortex discovery
-    // verifies only the launcher binary. Relay's internal runtime files
-    // (DLL, mod_loader Lua, legal files) are not enumerated.
+    // verifies only the launcher binary, not Relay's internal runtime.
     expect(relayTool.requiredFiles).toEqual([RELAY_EXECUTABLE]);
   });
 
   it('does not enumerate Relay internal runtime files', () => {
-    // Defense against re-introducing the file-list contract: none of
-    // Relay's internal files may appear in requiredFiles.
+    // Defense against re-introducing a file-list contract.
     expect(relayTool.requiredFiles).not.toContain('relay_shell.dll');
     expect(relayTool.requiredFiles).not.toContain('mod_loader/init.lua');
     expect(relayTool.requiredFiles).not.toContain('LICENSE');
@@ -92,9 +88,9 @@ describe('relayTool requiredFiles', () => {
 
 describe('relayTool parameters', () => {
   it('emits each flag and value as a separate token (no shell quoting)', () => {
-    // design.md (Relay tool): Vortex passes parameters as spawn arguments and
-    // strips literal quote characters. Keeping each value its own token
-    // avoids the need for any quoting, even when a path contains spaces.
+    // Vortex passes parameters as spawn arguments and strips literal
+    // quote characters; keeping each value its own token avoids any
+    // quoting even when a path contains spaces.
     expect(relayTool.parameters).toEqual([
       '--game-binary',
       `{${RELAY_GAME_BINARY_VAR}}`,
@@ -104,8 +100,8 @@ describe('relayTool parameters', () => {
   });
 
   it('uses the uppercase extension-namespaced variable names', () => {
-    // Per the registerToolVariables doc comment (api.d.ts line 3881):
-    // keys should be all upper case, latin characters and underscores.
+    // registerToolVariables keys must be all upper case, latin
+    // characters and underscores.
     expect(RELAY_GAME_BINARY_VAR).toMatch(/^[A-Z_]+$/);
     expect(RELAY_MOD_PATH_VAR).toMatch(/^[A-Z_]+$/);
     expect(RELAY_GAME_BINARY_VAR).toBe('RELAY_GAME_BINARY');
@@ -113,9 +109,9 @@ describe('relayTool parameters', () => {
   });
 
   it('wraps each variable in string-template braces for Vortex expansion', () => {
-    // Vortex's `string-template` formatting replaces {VAR} tokens with
-    // the value from the merged variable map (reference doc Section 11).
-    // Plain VAR (no braces) would be passed through literally.
+    // Vortex's string-template formatting replaces {VAR} tokens with the
+    // value from the merged variable map; plain VAR would pass through
+    // literally.
     expect(relayTool.parameters).toContain(`{${RELAY_GAME_BINARY_VAR}}`);
     expect(relayTool.parameters).toContain(`{${RELAY_MOD_PATH_VAR}}`);
   });
@@ -136,8 +132,7 @@ describe('relayTool parameters', () => {
 describe('Relay constants consistency', () => {
   it('exposes mod_relay.exe as the single Relay filename the extension knows', () => {
     expect(RELAY_EXECUTABLE).toBe('mod_relay.exe');
-    // The requiredFiles list derives solely from RELAY_EXECUTABLE; this
-    // guards against a future re-introduction of a file-list constant.
+    // Guards against a future re-introduction of a file-list constant.
     expect(relayTool.requiredFiles).toEqual([RELAY_EXECUTABLE]);
   });
 });

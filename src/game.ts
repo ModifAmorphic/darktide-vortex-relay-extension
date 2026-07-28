@@ -13,36 +13,16 @@ import {
 } from './constants';
 
 /**
- * Darktide game registration for Vortex.
- *
- * Grounded identifiers and field semantics come from
- * `docs/reference/vortex-extension-development.md` Section 5 and
- * `docs/architecture/design.md` (Game registration). The internal game ID is
- * distinct from the Nexus domain; the Nexus download/NXM association is wired
- * through `details.nexusPageId`.
- *
- * Version-grounding note: the installed `@nexusmods/vortex-api` 2.3.0-beta.1
- * types export `fs` as a top-level namespace. The reference doc's import
- * example omitted `fs`, which this module adds explicitly. `fs` and `util`
- * resolve to the same runtime API proxy when Vortex loads the extension.
+ * Darktide `IGame` registration for Vortex.
  */
 
 /**
- * Ensures the extension-owned deployment, mods content, and load-order
- * directories under Vortex userData exist and are writable before Vortex
- * activates game-mode management.
- *
- * Used as `game.setup`. A failure prevents the game from being managed, which
- * is the correct behavior when the deployment target cannot be written: the
- * user gets a single actionable error instead of mysterious deploy failures
- * later.
- *
- * The discovered Darktide install path (`discovery.path`) is intentionally
- * unused. The extension never writes inside the Darktide installation
- * (design invariant; design.md, Design invariants), so all directories it creates live
- * under Vortex userData.
- *
- * @param discovery Vortex's discovery result for the located Darktide install.
+ * `game.setup`. Ensures the extension-owned directories under Vortex
+ * userData exist and are writable before Vortex activates game-mode
+ * management. A failure prevents management, which is correct: the user
+ * gets one actionable error instead of mysterious deploy failures later.
+ * The discovered Darktide path is unused; the extension never writes
+ * inside the Darktide install.
  */
 export async function setupDiscoveredGame(discovery: types.IDiscoveryResult): Promise<void> {
   void discovery;
@@ -51,10 +31,6 @@ export async function setupDiscoveredGame(discovery: types.IDiscoveryResult): Pr
   const modsContentDirPath = paths.modsContentDir(userData);
   const loadOrderDirPath = paths.loadOrderDir(userData);
   try {
-    // Parent first (deployDir), then its child (modsContentDir), then the
-    // sibling load-order dir. ensureDirWritable with recursive semantics
-    // would tolerate any order, but creating parent-first keeps the intent
-    // explicit and matches the tree layout in paths.ts.
     await fs.ensureDirWritableAsync(deployDirPath);
     await fs.ensureDirWritableAsync(modsContentDirPath);
     await fs.ensureDirWritableAsync(loadOrderDirPath);
@@ -69,36 +45,11 @@ export async function setupDiscoveredGame(discovery: types.IDiscoveryResult): Pr
 }
 
 /**
- * The Darktide `IGame` registration object.
- *
- * `queryModPath` ignores the discovered game path and returns the absolute
- * mods content directory (`<deployDir>/mods`) so no deployment ever lands
- * inside the Darktide install. `mergeMods: true` routes every staged mod
- * tree to that shared target root, so each mod deploys to
- * `<modsContentDir>/<name>/`, matching the Mod Relay layout (design.md, Mod directory).
- *
- * `supportedTools` registers the Mod Relay tool (design.md, Relay tool).
- * Vortex 2.3 has no separate `registerTool` method on `IExtensionContext`;
- * supported tools are declared per-game via `IGame.supportedTools` (api.d.ts
- * line 4214). Vortex discovers the tool from this list and surfaces it in
- * the launch UI.
- *
- * `getModPaths` returns the same `modsContentDir` for the default mod type
- * (`''`). Vortex's built-in "Open Mod Folder" dashboard action
- * (`openModFolder` in the renderer) resolves its target by calling
- * `getGame(gameId).getModPaths(discovered.path)[""]`. Without `getModPaths`
- * defined, that action silently fails for Darktide, so this is what makes
- * the built-in action work (design.md, User-facing actions). The empty-string key is the
- * default mod type, and returning `modsContentDir` (NOT `deployDir`) is
- * deliberate: `modsContentDir` is the directory that actually contains the
- * deployed mod folders and `mods.lst`, and it is the same value
- * `queryModPath` returns. Returning `deployDir` (the `--mod-path` parent)
- * would open the wrong directory for the user.
- *
- * `environment` is deliberately unset: Relay publishes its own Steam child
- * environment when it launches, and the game registration's environment does
- * not automatically reach a separately registered tool (reference doc
- * Section 5).
+ * The Darktide `IGame` registration. `queryModPath` and `getModPaths['']`
+ * both return `modsContentDir` (not `deployDir`) so the built-in Open Mod
+ * Folder opens the directory holding the mod trees and `mods.lst`.
+ * `supportedTools` carries the Relay tool; Vortex 2.3 has no separate
+ * `registerTool`.
  */
 export const game: types.IGame = {
   id: GAME_ID,
@@ -106,19 +57,13 @@ export const game: types.IGame = {
   executable: () => GAME_EXECUTABLE,
   requiredFiles: [...GAME_REQUIRED_FILES],
   queryModPath: () => paths.modsContentDir(util.getVortexPath('userData')),
-  // Vortex's built-in "Open Mod Folder" action reads
-  // `getModPaths(discovered.path)[""]`. Returning `modsContentDir` (the
-  // directory that holds the deployed mod trees and `mods.lst`, matching
-  // `queryModPath`) makes that action open the right directory for the
-  // user. See the object-level doc comment for the full rationale.
   getModPaths: (_gamePath: string) => ({
     '': paths.modsContentDir(util.getVortexPath('userData')),
   }),
-  // The installed IGame type declares setup as returning the Bluebird-based
-  // `Promise_2<void>`, but modern `async` returns a native `Promise<void>`.
-  // Vortex awaits any thenable at runtime, so this cast only bridges the
-  // legacy API type with contemporary async/await code; no runtime behavior
-  // changes.
+  // The installed IGame type declares `setup` returning the Bluebird-based
+  // `Promise_2<void>`, but modern `async` returns native `Promise<void>`;
+  // Vortex awaits any thenable at runtime, so the cast only bridges the
+  // legacy type.
   setup: setupDiscoveredGame as unknown as types.IGame['setup'],
   mergeMods: true,
   supportedTools: [relayTool],

@@ -12,17 +12,14 @@ import {
 } from '../src/primaryTool';
 
 /**
- * The pure decision helper takes live Vortex state and reads it via
- * `selectors.activeProfile` plus two nested settings paths. Tests build
- * a minimal state shape inline (mirroring how `test/startHook.test.ts`
- * builds state for `decideDmfWarning`) so the decision is exercised
- * without an api or a store.
- *
- * The promoter factory test uses a tiny fake `api` (getState returns
- * the fixture state, store.dispatch is a spy) and the stub
- * `actions.setPrimaryTool` returns an opaque sentinel action. The
- * decision is what governs the dispatch, so the assertions reduce to
- * "dispatch was called (or not) per the decision".
+ * The pure decision helper takes live Vortex state via
+ * selectors.activeProfile plus two nested settings paths; tests build a
+ * minimal state shape inline so the decision is exercised without an
+ * api or a store. The promoter factory test uses a tiny fake api
+ * (getState returns the fixture state, store.dispatch is a spy) and the
+ * stub actions.setPrimaryTool returns an opaque sentinel action; the
+ * decision governs the dispatch, so assertions reduce to "dispatch was
+ * called (or not) per the decision".
  */
 
 vi.mock('@nexusmods/vortex-api', () => ({
@@ -30,8 +27,8 @@ vi.mock('@nexusmods/vortex-api', () => ({
     activeProfile: vi.fn(() => undefined),
   },
   actions: {
-    // Sentinel action carrying the args so the promoter dispatch test
-    // can assert the dispatch received the right payload.
+    // Sentinel action carrying the args so the dispatch test can assert
+    // the dispatch received the right payload.
     setPrimaryTool: vi.fn((gameId: string, toolId: string): unknown => ({
       type: 'set-primary-tool',
       gameId,
@@ -41,19 +38,9 @@ vi.mock('@nexusmods/vortex-api', () => ({
 }));
 
 /**
- * Builds a minimal Vortex `IState` fixture with the supplied primary
- * tool and discovered Relay tool record. Other state the decision does
- * not read is omitted; the `as unknown as types.IState` cast records
- * that intent at the call site.
- *
- * @param activeGameId the `gameId` of the active profile. When defined,
- *   the fixture's active profile carries this id (and `selectors.activeProfile`
- *   is mocked to return it).
- * @param primaryToolId the current primary tool id for `gameId`. Pass
- *   `undefined` to leave the primary unset.
- * @param relayPath the discovered Relay tool's `path`. Pass `undefined`
- *   for a discovery record without a path; pass `null` for no
- *   discovery record at all.
+ * Builds a minimal Vortex IState fixture with the supplied primary tool
+ * and discovered Relay tool record. The `as unknown as types.IState`
+ * cast records that intent at the call site.
  */
 function makeState(opts: {
   activeGameId?: string;
@@ -132,9 +119,8 @@ describe('shouldPromotePrimary', () => {
   });
 
   it('returns promote=false when the Relay tool is discovered without a path', () => {
-    // Vortex may legitimately persist a discovery record before the
-    // tool's `path` has been resolved; we treat absence of a truthy
-    // path as "not ready to promote".
+    // Vortex may persist a discovery record before the tool's path has
+    // been resolved; absence of a truthy path is treated as not ready.
     const decision = shouldPromotePrimary(
       makeState({ activeGameId: GAME_ID, relayPath: undefined }),
       GAME_ID,
@@ -162,9 +148,8 @@ describe('shouldPromotePrimary', () => {
   });
 
   it('defaults the gameId parameter to GAME_ID', () => {
-    // No gameId argument; the decision must still match the Darktide
-    // active profile. This verifies the default works at the call site
-    // (src/index.ts does not pass gameId explicitly).
+    // Verifies the default works at the call site (src/index.ts does not
+    // pass gameId explicitly).
     const decision = shouldPromotePrimary(
       makeState({ activeGameId: GAME_ID, relayPath: 'C:\\Relay' }),
     );
@@ -172,8 +157,8 @@ describe('shouldPromotePrimary', () => {
   });
 
   it('ignores a primary tool set for a different game', () => {
-    // A primary set on a different game's slot does not block promotion
-    // for Darktide. The lookup is keyed by gameId.
+    // A primary set on a different game's slot does not block Darktide
+    // promotion; the lookup is keyed by gameId.
     const state = {
       settings: {
         interface: {
@@ -201,7 +186,6 @@ describe('shouldPromotePrimary', () => {
 });
 
 describe('createPrimaryToolPromoter', () => {
-  /** Builds a fake api with a spy dispatch and the supplied fixture state. */
   function fakeApi(state: types.IState): {
     api: types.IExtensionApi;
     dispatch: ReturnType<typeof vi.fn>;
@@ -280,9 +264,9 @@ describe('createPrimaryToolPromoter', () => {
   });
 
   it('re-evaluates state on every invocation', async () => {
-    // The promoter must read fresh state each call so promotion fires
-    // as soon as Vortex discovers the Relay tool, even if the promoter
-    // was created before discovery completed.
+    // The promoter must read fresh state each call so promotion fires as
+    // soon as Vortex discovers the Relay tool, even if the promoter was
+    // created before discovery completed.
     const stateA = makeState({ activeGameId: GAME_ID, relayPath: undefined });
     const dispatch = vi.fn();
     let current = stateA;
