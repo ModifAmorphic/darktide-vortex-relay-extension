@@ -6,7 +6,27 @@ import { game } from '../src/game';
 import main from '../src/index';
 import { INSTALLER_ID, INSTALLER_PRIORITY } from '../src/installer';
 import { RELAY_TOOL_ID } from '../src/constants';
+import {
+  createPrimaryToolPromoter,
+  PRIMARY_TOOL_TEST_EVENT,
+  PRIMARY_TOOL_TEST_ID,
+} from '../src/primaryTool';
 import { START_HOOK_ID, START_HOOK_PRIORITY } from '../src/startHook';
+
+/**
+ * The primary-tool promoter is mocked so the wiring test can assert the
+ * `did-deploy` handler invokes it without coupling to the real decision
+ * (the decision is covered by `test/primaryTool.test.ts`). The factory
+ * returns a vi.fn by default so any incidental invocation (e.g. the
+ * `did-deploy` handler running during an unrelated test) is a no-op;
+ * tests that assert on the call override the return value per-test via
+ * `vi.mocked(...).mockReturnValue(...)`.
+ */
+vi.mock('../src/primaryTool', () => ({
+  createPrimaryToolPromoter: vi.fn(() => vi.fn(async () => undefined)),
+  PRIMARY_TOOL_TEST_ID: 'mod-relay-primary-promote',
+  PRIMARY_TOOL_TEST_EVENT: 'gamemode-activated',
+}));
 
 /**
  * Builds a stub extension context that records only the surfaces the entry
@@ -43,6 +63,7 @@ function stubContext(): types.IExtensionContext {
     registerToolVariables: vi.fn(),
     registerStartHook: vi.fn(),
     registerAction: vi.fn(),
+    registerTest: vi.fn(),
     once: vi.fn((cb: () => void | PromiseLike<void>) => {
       // Invoke synchronously so the test can assert the handlers were
       // registered. The real Vortex runtime defers this callback until
@@ -103,6 +124,20 @@ describe('extension entry', () => {
     expect(args[0]).toBe(START_HOOK_PRIORITY);
     expect(args[1]).toBe(START_HOOK_ID);
     expect(typeof args[2]).toBe('function');
+  });
+
+  it('registers the primary-tool promotion test with the spec id and gamemode-activated event', () => {
+    // Vortex 2.3 and 2.4 ignore `ITool.defaultPrimary`, so the
+    // extension promotes Relay itself via a `registerTest` check on
+    // `gamemode-activated` (the same event starter_dashlet's
+    // `primary-tool` test uses).
+    const ctx = stubContext();
+    main(ctx);
+    expect(ctx.registerTest).toHaveBeenCalledTimes(1);
+    const args = vi.mocked(ctx.registerTest).mock.calls[0]!;
+    expect(args[0]).toBe(PRIMARY_TOOL_TEST_ID);
+    expect(args[1]).toBe(PRIMARY_TOOL_TEST_EVENT);
+    expect(typeof args[2]).toBe('function'); // CheckFunction
   });
 
   it('registers the two user-facing open-directory actions via registerAction', () => {
@@ -181,5 +216,23 @@ describe('event handler registration', () => {
     const api = ctx.api as unknown as { onAsync: ReturnType<typeof vi.fn> };
     const channels = api.onAsync.mock.calls.map((c) => c[0]);
     expect(channels).toEqual(['did-deploy']);
+  });
+
+  it('invokes the primary-tool promoter from the did-deploy handler', async () => {
+    // Deploy is the realistic moment at which a freshly bundled Relay
+    // tool becomes discoverable, so the did-deploy handler runs the
+    // same promoter as the gamemode-activated test (fire-and-forget).
+    // The primaryTool module is mocked at the file top; this test
+    // overrides the factory to return a per-test spy.
+    const promoterSpy = vi.fn(async () => undefined);
+    vi.mocked(createPrimaryToolPromoter).mockReturnValue(promoterSpy);
+    const ctx = stubContext();
+    main(ctx);
+    const api = ctx.api as unknown as { onAsync: ReturnType<typeof vi.fn> };
+    const didDeployHandler = api.onAsync.mock.calls.find((c) => c[0] === 'did-deploy')![1] as (
+      profileId: string,
+    ) => Promise<void>;
+    await didDeployHandler('profile-1');
+    expect(promoterSpy).toHaveBeenCalledTimes(1);
   });
 });

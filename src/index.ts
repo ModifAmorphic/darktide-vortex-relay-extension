@@ -4,6 +4,11 @@ import { registerActions } from './actions';
 import { game } from './game';
 import { createInstaller } from './installer';
 import { projectActiveProfileModsLst } from './modsLst';
+import {
+  createPrimaryToolPromoter,
+  PRIMARY_TOOL_TEST_EVENT,
+  PRIMARY_TOOL_TEST_ID,
+} from './primaryTool';
 import { createStartHook, START_HOOK_ID, START_HOOK_PRIORITY } from './startHook';
 import { createToolVariablesCallback } from './toolVariables';
 
@@ -28,6 +33,13 @@ import { createToolVariablesCallback } from './toolVariables';
  *   directory.
  * - The launch-guard start hook, which validates state and regenerates
  *   `mods.lst` immediately before Relay launches (design.md, Launch guard).
+ * - Primary-tool auto-promotion. Vortex 2.3 and 2.4 ignore
+ *   `ITool.defaultPrimary`, so a `registerTest('gamemode-activated', ...)`
+ *   check promotes Relay to the primary tool for Darktide when no
+ *   primary is set and Relay has been discovered with a path. The same
+ *   promoter runs as a fire-and-forget tail of the `did-deploy` handler
+ *   so a freshly bundled Relay tool gets promoted the first time mods
+ *   deploy.
  * - Two user-facing open-directory actions (design.md, User-facing actions): Open
  *   Relay log directory and Open Darktide console-log directory. The
  *   "Launch modded" and "Open Mod Folder" capabilities are Vortex
@@ -87,6 +99,26 @@ function main(context: types.IExtensionContext): boolean {
 
   registerActions(context);
 
+  // Auto-promote Relay to Vortex's primary tool for Darktide when no
+  // primary is set. Vortex 2.3 and 2.4 ignore `ITool.defaultPrimary`,
+  // so the extension promotes on its own behalf. The
+  // `gamemode-activated` test fires on every Darktide activation; the
+  // decision in `shouldPromotePrimary` makes the second and later
+  // activations no-ops once a primary is set. The same promoter runs
+  // from the `did-deploy` handler below so a freshly bundled Relay
+  // tool gets promoted the first time mods deploy.
+  const promoter = createPrimaryToolPromoter(context.api);
+  // The check returns undefined (no ITestResult), the same pattern
+  // starter_dashlet's `primary-tool` test uses: the side effect is the
+  // promotion, and surfacing nothing keeps it invisible. The
+  // `CheckFunction` type signature demands `PromiseLike<ITestResult>`
+  // but the runtime accepts undefined (starter_dashlet relies on this);
+  // the cast records that intent at the call site.
+  const check = (async (): Promise<void> => {
+    await promoter();
+  }) as unknown as types.CheckFunction;
+  context.registerTest(PRIMARY_TOOL_TEST_ID, PRIMARY_TOOL_TEST_EVENT, check);
+
   // Long-lived event handlers register inside `context.once` so all
   // extensions are initialized first. Both handlers project mods.lst
   // from the active profile's sorted enabled mods; both swallow
@@ -109,6 +141,12 @@ function main(context: types.IExtensionContext): boolean {
           warning: true,
         });
       }
+      // Fire-and-forget: deploy is the realistic moment a freshly
+      // bundled Relay tool becomes discoverable, so this is the second
+      // promotion opportunity (the first is the gamemode-activated
+      // test). Swallow errors so a promotion failure never blocks
+      // deploy; the next game-mode activation retries.
+      void promoter().catch(() => {});
     });
 
     api.events.on('profile-did-change', (profileId: string) => {
