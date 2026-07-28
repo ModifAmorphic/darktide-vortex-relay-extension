@@ -2,7 +2,9 @@
 
 > **Status:** Version-grounded reference for this project. It records what the
 > Vortex 2.3 documentation and source establish, plus the design consequences
-> relevant to Darktide and Mod Relay. It is not an implementation spec.
+> relevant to Darktide and Mod Relay. It is not an implementation spec. The
+> reference is grounded against the Vortex 2.3 line and verified on 2.4;
+> re-ground only if Vortex ships a breaking change the extension depends on.
 
 ## 1. Source hierarchy and version grounding
 
@@ -16,8 +18,8 @@ Use this evidence order when sources disagree:
 The Vortex Wiki home warns that migrated documentation may be outdated. Several
 examples still import the old unscoped `vortex-api` package even though the
 repository migration banner says new work should use
-`@nexusmods/vortex-api`. Treat the exact 2.3 source/types as authoritative for
-signatures and runtime behavior.
+`@nexusmods/vortex-api`. Treat the 2.3 source line and types as authoritative
+for signatures and runtime behavior.
 
 ### Baseline inventory
 
@@ -55,27 +57,39 @@ model.
 
 ### `info.json`
 
-All four fields are documented as mandatory:
+The manifest carries the display name, a stable machine `id`, author, SemVer
+version, and description:
 
 ```json
 {
   "name": "Game: Warhammer 40,000: Darktide",
+  "id": "game-darktide-relay",
   "author": "ModifAmorphic",
   "version": "0.1.0",
   "description": "Darktide support for Vortex through Mod Relay"
 }
 ```
 
-- Use SemVer.
-- Versions below `1.0.0` appear as beta in Vortex.
-- Keep the display name stable; do not put the version in the name.
+- Use SemVer. Versions below `1.0.0` appear as beta in Vortex.
+- Keep the display `name` stable; do not put the version in the name.
+- `id` is the extension's stable machine identity. Vortex's installer derives
+  the install directory from it (`<plugins>/<sanitize(id)>`) and uses it to
+  recognize prior installs, so a new version drag-dropped over an old one
+  replaces it cleanly without an uninstall first. Without an `id`, Vortex
+  falls back to the archive basename, which embeds the version, so each
+  release would install side-by-side and conflict. Grounded against the
+  Vortex installer: `extension_manager/util.ts` `readExtensionInfo`
+  (`id = data.id || path.basename(finalPath)`) and
+  `extension_manager/installExtension.ts` (`destPath = sanitize(id)`;
+  `removeOldVersion` matches prior installs by `id`, then `modId`, then
+  `name`, and overwrites the dest dir).
 
 ### `gameart.png`
 
 Current packaging requirements:
 
 - PNG;
-- 640 × 360 pixels;
+- 640 x 360 pixels;
 - no more than 1 MB;
 - landscape 16:9;
 - visible on a dark background; and

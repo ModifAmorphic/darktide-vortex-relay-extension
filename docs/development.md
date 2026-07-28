@@ -10,10 +10,10 @@ checklists, see [`../scripts/README.md`](../scripts/README.md).
 
 - **Windows.** Vortex is a Windows-only application and the extension runs
   inside it. There is no Linux or macOS target.
-- **Node 24** (matches the Vortex 2.3 runtime).
+- **Node 24** (matches the Vortex 2.3+ runtime).
 - **pnpm 11.15+** (activated via corepack).
-- **Vortex 2.3**, a Steam Darktide install, and representative mod archives
-  for live integration testing.
+- **Vortex 2.3+** (tested on 2.4), a Steam Darktide install, and
+  representative mod archives for live integration testing.
 
 ## Get the code and install
 
@@ -45,7 +45,6 @@ src/
     names.ts        safe-name validation
     fs.ts            atomic write helper
 scripts/
-  dev-install.ts    build + copy artifacts into a Vortex plugins directory
   bundle-relay.ts   fetch the latest Relay release into relay/
   package.ts        assemble the distributable archive
 test/               Vitest unit tests (one file per source module)
@@ -99,22 +98,23 @@ Integration validation (Vortex + Darktide + real mods) is operator-driven;
 see [`../scripts/README.md`](../scripts/README.md) for the per-capability
 verification checklists.
 
-## Develop against a local Vortex install
+## Install a build into Vortex
+
+The extension is installed the same way end users install it: package the
+archive and drop it into Vortex. Vortex manages where extensions are stored;
+the extension does not reach into Vortex's plugin directory.
 
 ```powershell
-pnpm dev:install --target "$env:APPDATA\Vortex\Plugins"
+pnpm bundle:relay   # once, to populate relay/ (see below)
+pnpm package        # builds and assembles dist-package/<archive>.zip
 ```
 
-Builds the extension and copies `info.json`, `gameart.png`, `dist/index.js`
-(as `index.js`), and the repo-root `relay/` runtime into
-`<target>/darktide-relay/`. Restart Vortex (fully close and reopen) to load
-the new build; a window reload is not enough because the Node extension host
-that serves `require("@nexusmods/vortex-api")` only re-initializes on a full
-restart.
-
-Run `pnpm bundle:relay` first so live launches find a complete Relay runtime.
-`dev:install` accepts `--no-build` to skip the build step and `--help` for
-full usage.
+Then drag-drop the produced `.zip` onto the Vortex window. Vortex installs it
+over any previous version (the manifest carries a stable `id`, so an update
+replaces the old one; no uninstall needed) and prompts you to restart. A full
+restart is required: the Node extension host that serves
+`require("@nexusmods/vortex-api")` only re-initializes on a full restart, not
+a window reload.
 
 ## Bundle the Relay runtime
 
@@ -178,12 +178,12 @@ merges to `main`) are in [`../AGENTS.md`](../AGENTS.md).
 
 ## Toolchain
 
-Pinned by the lockfile; grounded against the npm registry and the Vortex 2.3
+Pinned by the lockfile; grounded against the npm registry and the Vortex 2.3+
 build runtime.
 
 | Tool | Version | Notes |
 | --- | --- | --- |
-| Node | 24 LTS | Matches the Vortex 2.3 runtime; required by pnpm 11.15+. CI uses Node 24. |
+| Node | 24 LTS | Matches the Vortex 2.3+ runtime; required by pnpm 11.15+. CI uses Node 24. |
 | pnpm | 11.15.0 | Activated via corepack. |
 | TypeScript | 6.0.3 | `typescript-eslint` 8.x peer-requires TS `<6.1.0`; TS 7 support was closed as `not_planned` ([typescript-eslint#12518](https://github.com/typescript-eslint/typescript-eslint/issues/12518)). |
 | Rolldown | 1.2.0 | Bundler. Emits CommonJS for the Node platform. |

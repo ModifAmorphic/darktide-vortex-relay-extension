@@ -4,60 +4,36 @@ Operator-facing dev tooling for the Darktide Relay Vortex extension. Run these
 from the repo root on your Windows machine where Vortex and Steam Darktide
 are installed.
 
-- `dev-install.ts` builds the extension and copies the runtime artifacts into
-  a Vortex plugins directory so a restart picks up the new build.
 - `bundle-relay.ts` fetches the latest Mod Relay release into the repo-root
-  `relay/` directory. Run before `dev:install` (for live launch verification)
-  or `package` (for release-archive assembly).
+  `relay/` directory. Run once before `package` (and again whenever you want
+  to refresh the bundled Relay runtime).
 - `package.ts` assembles the distributable Vortex extension archive into
-  `dist-package/`. Run after a build and a bundle.
+  `dist-package/`. Builds first, then zips. Install the archive into Vortex
+  by drag-dropping it onto the Vortex window.
 - `package.json` scopes this folder to ESM so Node 24 type-strips the `.ts`
   files directly. The repo root stays CommonJS for the built extension output.
 
-## Install a fresh build into Vortex
+## Install a build into Vortex
 
-PowerShell:
-
-```powershell
-pnpm dev:install --target "$env:APPDATA\Vortex\Plugins"
-```
-
-cmd:
-
-```cmd
-pnpm dev:install --target "%APPDATA%\Vortex\Plugins"
-```
-
-Or set the env var once per shell and omit `--target`:
+Builds install the same way end users install releases: package the archive
+and drop it into Vortex. Vortex manages where extensions are stored; these
+scripts never write into Vortex's plugin directory directly.
 
 ```powershell
-$env:VORTEX_PLUGINS_DIR = "$env:APPDATA\Vortex\Plugins"
-pnpm dev:install
+pnpm bundle:relay   # once, to populate repo-root relay/
+pnpm package        # builds and writes dist-package\<archive>.zip
 ```
 
-The script:
-1. Runs `pnpm build` for you (pass `--no-build` to skip if you already built).
-2. Copies `info.json`, `gameart.png`, and `dist/index.js` (as `index.js`)
-   into `<target>/darktide-relay/`.
-3. Prints what it copied and reminds you to restart Vortex.
-
-Run `pnpm dev:install --help` for the full usage summary.
-
-### Common errors
-
-- `EACCES`, `EPERM`, `EBUSY`, `EAGAIN` on copy: Vortex is still running and
-  holds the destination file open. Close Vortex fully (check Task Manager
-  for `Vortex.exe` and the Electron helper processes) and re-run.
-- "No Vortex plugins directory supplied": pass `--target <dir>` or set
-  `VORTEX_PLUGINS_DIR`.
-- "dist/index.js does not exist": you passed `--no-build` without building
-  first. Drop the flag, or run `pnpm build` manually before `dev:install`.
+Then drag-drop the produced `.zip` onto the Vortex window. Vortex installs it
+over any previous version (the manifest carries a stable `id`, so an update
+replaces the old one; no uninstall needed) and prompts you to restart.
 
 ### Restart Vortex after each install
 
 Vortex loads extension code at startup. A window reload is not enough; the
 Node extension host that serves `require("@nexusmods/vortex-api")` only
-re-initializes on a full restart. Close Vortex completely and reopen it.
+re-initializes on a full restart. Close Vortex completely and reopen it when
+Vortex prompts.
 
 ## Verification checklist
 
@@ -76,7 +52,7 @@ the new one.
 
 Verifies PR #3 (`feat/game-registration`).
 
-1. `pnpm dev:install --target "$env:APPDATA\Vortex\Plugins"` and restart Vortex.
+1. `pnpm package`, then drop the archive into Vortex and restart when prompted.
 2. Manage Darktide in Vortex.
 
 Verify:
@@ -120,8 +96,8 @@ Setup:
 1. Remove all installed Darktide mods from Vortex.
 2. Stop managing Darktide, then re-manage it (re-creates `deploy\`,
    `deploy\mods\`, and `load-order\`).
-3. `pnpm dev:install --target "$env:APPDATA\Vortex\Plugins"` and restart
-   Vortex.
+3. `pnpm package`, then drop the archive into Vortex and restart
+   when prompted.
 
 A. Canonical-layout archive.
 1. Install a mod whose archive layout is `<name>/<name>.mod` plus
@@ -188,8 +164,8 @@ Setup:
 
 1. Remove all installed Darktide mods from Vortex (or stop managing and
    re-manage Darktide to start clean).
-2. `pnpm dev:install --target "$env:APPDATA\Vortex\Plugins"` and restart
-   Vortex.
+2. `pnpm package`, then drop the archive into Vortex and restart
+   when prompted.
 
 Both `deploy\` and `load-order\` live under
 `%APPDATA%\Vortex\warhammer40kdarktide-relay\`. The relevant outputs:
@@ -260,8 +236,9 @@ The extension ships the Relay runtime as a directory beside the built
 `index.js` (`relay/`). That directory is gitignored and is bundled into the
 release archive by `scripts/package.ts`. To populate it, run
 `pnpm bundle:relay`, which fetches the latest Mod Relay release and extracts
-it verbatim into `repo-root/relay/`. `pnpm dev:install` then copies it into
-the install directory alongside the built extension.
+it verbatim into `repo-root/relay/`. `pnpm package` then includes the
+`relay/` tree in the archive, and Vortex installs it beside the built
+extension.
 
 Setup:
 
@@ -271,15 +248,17 @@ Setup:
    `THIRD_PARTY_NOTICES.md`, and whatever else Relay ships).
 
    The directory is gitignored; never commit Relay binaries. If `relay/` is
-   absent, `pnpm dev:install` skips the copy silently, and the start hook
-   blocks launch with a specific error until you populate it.
+   absent, `pnpm package` fails with a specific error (it gates on
+   `relay/mod_relay.exe`); the start hook also blocks launch until you
+   populate it.
 
-2. `pnpm dev:install --target "$env:APPDATA\Vortex\Plugins"` and restart
-   Vortex.
+2. `pnpm package`, then drop the archive into Vortex and restart
+   when prompted.
 
-The Relay runtime sits beside the built `index.js` in
-`%APPDATA%\Vortex\Plugins\darktide-relay\relay\`. The Darktide extension
-resolves this directory at runtime via `__dirname`.
+The Relay runtime sits beside the built `index.js` in the extension's
+install directory (Vortex-managed; open it via the extension's "Open Relay
+log directory" action on the Games tab). The extension resolves this
+directory at runtime via `__dirname`.
 
 A. Relay appears as the primary tool in Vortex.
 
@@ -294,9 +273,10 @@ B. Launch attempt without mods: start hook runs, passes all hard
 
    - With no Darktide mods installed (or all disabled), click the
      primary tool launch button.
-   - Expected: Relay starts, Darktide launches modded, and
-     `%APPDATA%\Vortex\Plugins\darktide-relay\relay\relay.log` shows
-     the bootstrap `OK` line from Relay's trampoline.
+    - Expected: Relay starts, Darktide launches modded, and the Relay
+      log directory's `relay.log` (open via the "Open Relay log
+      directory" action) shows the bootstrap `OK` line from Relay's
+      trampoline.
    - Darktide's install directory is unchanged throughout.
 
 C. Launch attempt with missing Relay files: start hook blocks with a
@@ -306,7 +286,7 @@ C. Launch attempt with missing Relay files: start hook blocks with a
      `relay/` (for example `relay/LICENSE`), and restart Vortex.
    - Click launch.
    - Expected: launch is blocked with a message listing every missing
-     file. Restore the file (or re-run `pnpm dev:install`) to proceed.
+      file. Restore the file (or reinstall the extension) to proceed.
 
 D. DMF warning fires once when DMF is absent or misordered, then does
    not re-fire.
@@ -333,9 +313,9 @@ F. No Darktide install directory writes.
 
    - Darktide install directory has no new files at any point during
      these checks. Everything the extension writes lives under
-     `%APPDATA%\Vortex\warhammer40kdarktide-relay\` (mod state,
-     warning flag) or `%APPDATA%\Vortex\Plugins\darktide-relay\relay\`
-     (the bundled runtime and its `relay.log`).
+      `%APPDATA%\Vortex\warhammer40kdarktide-relay\` (mod state,
+      warning flag) or the extension's install directory (the bundled
+      runtime and its `relay.log`).
 
 ### Step 7: User-facing open-directory actions
 
@@ -352,8 +332,8 @@ they do not appear on other games' tiles.
 
 Setup:
 
-1. `pnpm dev:install --target "$env:APPDATA\Vortex\Plugins"` and restart
-   Vortex.
+1. `pnpm package`, then drop the archive into Vortex and restart
+   when prompted.
 2. Manage Darktide if it is not already managed.
 
 A. Two custom actions appear under the Games tab Darktide tile.
@@ -370,10 +350,9 @@ A. Two custom actions appear under the Games tab Darktide tile.
 B. Open Relay log directory opens the bundled Relay runtime directory.
 
    - Click the action.
-   - Expected: Explorer opens
-     `%APPDATA%\Vortex\Plugins\darktide-relay\relay\`, which is where
-     `relay.log` is written beside the launcher. If `relay.log` is
-     present, Relay has run at least once on this install.
+    - Expected: Explorer opens the extension's bundled Relay runtime
+      directory, where `relay.log` is written beside the launcher. If
+      `relay.log` is present, Relay has run at least once on this install.
 
 C. Open Darktide console-log directory opens the console-log folder when
    it exists.
@@ -425,9 +404,9 @@ G. "Launch modded with Mod Relay" remains Vortex's built-in primary-tool
 H. No Darktide install directory writes.
 
    - Darktide install directory has no new files at any point during
-     these checks. Everything the actions touch lives under
-     `%APPDATA%\Vortex\Plugins\darktide-relay\relay\` (bundled
-     runtime, `relay.log`) or
+      these checks. Everything the actions touch lives under the
+      extension's install directory (`relay/`, bundled runtime,
+      `relay.log`) or
      `%APPDATA%\Fatshark\Darktide\console_logs\` (Darktide's own
      log directory, which the extension reads but does not create).
 
@@ -440,9 +419,8 @@ valid values).
 ## Bundle the Mod Relay runtime
 
 Fetch the latest Mod Relay release into the repo-root `relay/` directory.
-This is needed before `pnpm dev:install` (so live launches find a complete
-runtime) and before `pnpm package` (so the release archive contains the
-runtime).
+This is needed before `pnpm package` (so the archive contains a complete
+runtime; `package` gates on `relay/mod_relay.exe`).
 
 PowerShell:
 
@@ -535,7 +513,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 The first four entries (`info.json`, `gameart.png`, `index.js`,
 `relay/...`) must have no directory prefix. A wrapper directory (e.g.
-`darktide-relay/info.json`) means Vortex will reject the archive.
+`my-extension/info.json`) means Vortex will reject the archive.
 
 ## Release pipeline
 
