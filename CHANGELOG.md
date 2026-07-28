@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/compare/v0.1.3...v0.1.4) (2026-07-28)
+
+
+### Documentation
+
+* trim verbose code comments and fix stale start-hook refs ([#13](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/issues/13)) ([6a07d7d](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/commit/6a07d7db5b88d8348917575d5491392169320bfd))
+
 ## [0.1.3](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/compare/v0.1.2...v0.1.3) (2026-07-28)
 
 
