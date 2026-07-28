@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/compare/v0.1.2...v0.1.3) (2026-07-28)
+
+
+### Bug Fixes
+
+* **launch:** remove start hook that blocked Relay launches ([#11](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/issues/11)) ([b1deee7](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/commit/b1deee778ae7eb6efa7514a58899447bb9116056))
+
 ## [0.1.2](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/compare/v0.1.1...v0.1.2) (2026-07-28)
 
 
