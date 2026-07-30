@@ -2,9 +2,14 @@ import * as path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { assertArchiveRoot, composeArchivePath, readInfoVersion } from '../../scripts/package';
+import {
+  assertArchiveRoot,
+  composeArchivePath,
+  composeDevVersion,
+  readInfoVersion,
+} from '../../release/package';
 
-/** Unit tests for the pure helpers in scripts/package.ts. */
+/** Unit tests for the pure helpers in release/package.ts. */
 describe('readInfoVersion', () => {
   it('returns the version field from a valid info.json', () => {
     const text = JSON.stringify({
@@ -69,6 +74,29 @@ describe('composeArchivePath', () => {
   it('works with an absolute out dir', () => {
     const result = composeArchivePath('0.1.0', 'C:\\builds\\out');
     expect(result).toBe(path.join('C:\\builds\\out', 'darktide-relay-vortex-extension-0.1.0.zip'));
+  });
+});
+
+describe('composeDevVersion', () => {
+  it('returns 0.0.0-dev+<sha> when a sha is provided', () => {
+    expect(composeDevVersion('1a2b3c4')).toBe('0.0.0-dev+1a2b3c4');
+  });
+
+  it('falls back to 0.0.0-dev when the sha is null (git unavailable)', () => {
+    expect(composeDevVersion(null)).toBe('0.0.0-dev');
+  });
+
+  it('treats an empty sha string like a missing sha', () => {
+    // gitShortSha normalizes empty output to null, but guard the helper too.
+    expect(composeDevVersion('')).toBe('0.0.0-dev');
+  });
+
+  it('uses the 0.0.0 zero sentinel, never a release-looking version', () => {
+    // 0.0.0 sorts below every release; it must never carry a real release
+    // number (e.g. 0.1.0) that could be mistaken for a shipped version.
+    expect(composeDevVersion('abcdef0')).toBe('0.0.0-dev+abcdef0');
+    expect(composeDevVersion(null)).toBe('0.0.0-dev');
+    expect(composeDevVersion('abcdef0')).not.toMatch(/^0\.[1-9]/);
   });
 });
 

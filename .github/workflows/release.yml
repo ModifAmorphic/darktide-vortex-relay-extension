@@ -70,7 +70,7 @@ jobs:
           set -euo pipefail
           TAG="${{ needs.release-please.outputs.tag_name }}"
           VERSION="${TAG#v}"
-          VERSION="$VERSION" node -e "const fs = require('fs'); const info = JSON.parse(fs.readFileSync('info.json', 'utf8')); info.version = process.env.VERSION; fs.writeFileSync('info.json', JSON.stringify(info, null, 2) + '\n');"
+          VERSION="$VERSION" node -e "const fs = require('fs'); const info = JSON.parse(fs.readFileSync('release/assets/info.json', 'utf8')); info.version = process.env.VERSION; fs.writeFileSync('release/assets/info.json', JSON.stringify(info, null, 2) + '\n');"
 
       - name: Bundle Relay runtime
         run: pnpm bundle:relay
