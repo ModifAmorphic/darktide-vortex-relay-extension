@@ -255,11 +255,10 @@ by querying the active Vortex mod state for existing mods with the same
 identifying both mods.
 
 **DMF dependency rule.** The installer emits one `rule` instruction on every
-non-DMF install. The rule is `{ type: "after", reference: { repo: {
-repository: "nexus", modId: "8" }, versionMatch: "*" } }`, declaring an
-`after` dependency on DMF (Nexus mod id `8`,
-https://www.nexusmods.com/warhammer40kdarktide/mods/8). DMF itself does not get
-the rule; a self-reference would be nonsensical.
+non-DMF install. The rule is `{ type: "after", reference: { logicalFileName:
+"Darktide Mod Framework", versionMatch: "*" } }`, declaring an `after`
+dependency on DMF (https://www.nexusmods.com/warhammer40kdarktide/mods/8).
+DMF itself does not get the rule; a self-reference would be nonsensical.
 
 Vortex persists the rule on the mod's `rules` array via
 `InstallManager.processRule` (`InstallManager.ts` around lines 4096-4107 in
@@ -269,15 +268,20 @@ a mod carrying this rule sorts after DMF. With every non-DMF mod declaring
 `after DMF`, the sort places DMF first in deployment order without user
 intervention.
 
-The reference uses DMF's stable Nexus mod id rather than its file id or file
-version. The Vortex v2.3.0 `testModReference` matcher takes the `fuzzyVersion`
-path when `versionMatch === "*"`, which matches any installed mod whose
-`attributes.source === "nexus"` and `attributes.modId === 8` regardless of
-file version or file id. The `IModRepoId` installed type marks
-`fileId: string` as required, but the runtime matcher's fuzzy-version branch
-skips the `fileId` equality check, so the omission is type-level only. Under
-`skipLibCheck`, the `IRule` property of `IInstruction` resolves to `any`, so
-the rule literal type-checks without a cast.
+The reference identifies DMF by its logical file name (`Darktide Mod
+Framework`, DMF's stable Nexus logical file name) rather than by file hash,
+file id, or Nexus mod id. The Vortex v2.3.0 `testModReference` matcher matches
+an installed mod whose `logicalFileName` (or `customFileName`) equals the
+reference value, and `versionMatch: "*"` is treated as a fuzzy version so any
+DMF file version matches. This is the same reference shape Vortex's own "add
+dependency" UI produces, so in addition to sorting it resolves to a display
+name in the dependency UI ("Loads after Darktide Mod Framework"): the
+`renderModLookup` renderer derives the name from `logicalFileName`. A
+`repo`-only reference (Nexus mod id) would sort but cannot resolve to a name,
+so the rule would render as a dangling dependency. The `after`/`before` rule
+types are ordering-only and do not trigger Vortex's dependency-download
+system (only `requires`/`recommends` do), so this remains a pure ordering
+hint, not a hard install dependency.
 
 Users who want a specific mod-to-mod ordering beyond DMF-first add their own
 `after` or `before` rules via Vortex's mod details UI. The extension does not

@@ -5,7 +5,7 @@ import { selectors } from '@nexusmods/vortex-api';
 
 import {
   DMF_CANONICAL_NAME,
-  DMF_NEXUS_MOD_ID,
+  DMF_LOGICAL_FILE_NAME,
   GAME_ID,
   MOD_ATTRIBUTE_NAME,
 } from '../src/constants';
@@ -158,9 +158,9 @@ describe('planInstall: happy paths', () => {
 
     const rule = firstInstructionOfType(result.instructions, 'rule');
     expect(rule.rule?.type).toBe('after');
-    expect(rule.rule?.reference?.repo?.repository).toBe('nexus');
-    expect(rule.rule?.reference?.repo?.modId).toBe(DMF_NEXUS_MOD_ID);
+    expect(rule.rule?.reference?.logicalFileName).toBe(DMF_LOGICAL_FILE_NAME);
     expect(rule.rule?.reference?.versionMatch).toBe('*');
+    expect(rule.rule?.reference?.repo).toBeUndefined();
   });
 
   it('installs a single-wrapper archive and excludes sibling docs', () => {

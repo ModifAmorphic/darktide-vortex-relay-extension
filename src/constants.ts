@@ -58,8 +58,13 @@ export const MOD_ATTRIBUTE_NAME = 'relayModName';
  */
 export const DMF_CANONICAL_NAME = 'dmf';
 
-/** DMF's Nexus mod ID; used in the auto-generated `after` rule reference. */
-export const DMF_NEXUS_MOD_ID = '8';
+/**
+ * DMF's logical file name (its stable Nexus identity). Used as the
+ * `logicalFileName` in the auto-emitted `after` rule so the rule both
+ * matches DMF for Vortex's sort and resolves to a display name in the
+ * dependency UI ("Loads after Darktide Mod Framework").
+ */
+export const DMF_LOGICAL_FILE_NAME = 'Darktide Mod Framework';
 
 /** Internal Vortex tool id for Mod Relay. */
 export const RELAY_TOOL_ID = 'mod-relay';

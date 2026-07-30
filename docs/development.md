@@ -4,7 +4,7 @@ Human-facing guide for building, testing, and working on the Darktide Relay
 Vortex extension. For agent orientation and operating rules, see
 [`../AGENTS.md`](../AGENTS.md). For the system architecture, see
 [`architecture/design.md`](architecture/design.md). For operator verification
-checklists, see [`../scripts/README.md`](../scripts/README.md).
+checklists, see [`../release/README.md`](../release/README.md).
 
 ## Prerequisites
 
@@ -43,9 +43,10 @@ src/
     archive.ts      .mod candidate discovery and name derivation
     names.ts        safe-name validation
     fs.ts            atomic write helper
-scripts/
+release/
   bundle-relay.ts   fetch the latest Relay release into relay/
   package.ts        assemble the distributable archive
+  assets/           static archive inputs (info.json, gameart.png)
 test/               Vitest unit tests (one file per source module)
 docs/
   architecture/     system design
@@ -94,7 +95,7 @@ types-only `@nexusmods/vortex-api` package is in `test/stubs/vortex-api.ts`;
 per-test `vi.mock` overrides it.
 
 Integration validation (Vortex + Darktide + real mods) is operator-driven;
-see [`../scripts/README.md`](../scripts/README.md) for the per-capability
+see [`../release/README.md`](../release/README.md) for the per-capability
 verification checklists.
 
 ## Install a build into Vortex
@@ -135,13 +136,15 @@ unauthenticated GitHub API rate limit (useful in CI).
 pnpm package
 ```
 
-Assembles the distributable archive: stages `info.json`, `gameart.png`,
-`dist/index.js` (as `index.js`), and `relay/` in a temp directory, zips it so
-the four entries sit at the archive root with no wrapper directory, reads the
-zip's central directory to verify the root layout, and writes
-`dist-package/darktide-relay-vortex-extension-<info-version>.zip`. Runs
-`pnpm build` first unless you pass `--no-build`. `--out <path>` overrides the
-output archive path.
+Assembles the distributable archive: stages `assets/info.json` (with the
+resolved version written in), `assets/gameart.png`, `dist/index.js` (as
+`index.js`), and `relay/` in a temp directory, zips it so the four entries
+sit at the archive root with no wrapper directory, reads the zip's central
+directory to verify the root layout, and writes
+`dist-package/darktide-relay-vortex-extension-<version>.zip`. Locally
+`<version>` is `0.0.0-dev+<short sha>`; in CI it is the release version injected
+into `assets/info.json`. Runs `pnpm build` first unless you pass
+`--no-build`. `--out <path>` overrides the output archive path.
 
 Run `pnpm bundle:relay` first so `relay/` is populated; `package` gates on
 `relay/mod_relay.exe` existing.
@@ -155,8 +158,9 @@ runs `bundle:relay` and `package` in CI and uploads the archive to the
 release. A release ships only when you merge the release PR; feature PR merges
 do not release.
 
-The release workflow injects the tag version into `info.json` at build time so
-the shipped archive carries the release version. Add a `Release-As: X.Y.Z`
+The release workflow injects the tag version into `release/assets/info.json`
+at build time so the shipped archive carries the release version. Locally,
+`pnpm package` stamps `0.0.0-dev+<short sha>` instead. Add a `Release-As: X.Y.Z`
 footer to a merge commit only if you want to override the version
 release-please computed.
 

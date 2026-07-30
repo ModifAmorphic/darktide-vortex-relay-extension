@@ -1,15 +1,28 @@
-# scripts/
+# release/
 
-Operator-facing dev tooling for the Darktide Relay Vortex extension. Run these
-from the repo root on your Windows machine where Vortex and Steam Darktide
-are installed.
+Build and packaging tooling for the Darktide Relay Vortex extension. The same
+two scripts run in two contexts:
+
+- **Locally**, via `pnpm bundle:relay` and `pnpm package`, to produce a dev
+  build you can drop into Vortex for testing.
+- **In the GitHub release pipeline**
+  ([`.github/workflows/release.yml`](../.github/workflows/release.yml)), where
+  the release job runs the same two commands on `windows-latest` to build the
+  published release archive.
 
 - `bundle-relay.ts` fetches the latest Mod Relay release into the repo-root
   `relay/` directory. Run once before `package` (and again whenever you want
   to refresh the bundled Relay runtime).
 - `package.ts` assembles the distributable Vortex extension archive into
-  `dist-package/`. Builds first, then zips. Install the archive into Vortex
-  by drag-dropping it onto the Vortex window.
+  `dist-package/`. Builds first, then zips. Locally the archive and its
+  embedded `info.json` are stamped `0.0.0-dev+<short sha>` (or `0.0.0-dev` if git is
+  missing) so a local build is obviously not a release; in CI the release
+  pipeline injects the real version first. Install the archive into Vortex by
+  drag-dropping it onto the Vortex window.
+- `assets/` holds the static extension files `package.ts` drops verbatim at the
+  archive root: `info.json` (the Vortex extension manifest) and `gameart.png`
+  (the 640x360 Vortex tile art). These are inputs to `package.ts`, not build
+  artifacts.
 - `package.json` scopes this folder to ESM so Node 24 type-strips the `.ts`
   files directly. The repo root stays CommonJS for the built extension output.
 
@@ -184,7 +197,8 @@ A. Non-DMF mod carries the auto DMF rule.
 1. Install a non-DMF mod (any single-mod archive whose canonical name is
    not `dmf`).
 2. Open the mod's details in Vortex and inspect its rules.
-3. Expected: one `after` rule referencing DMF (Nexus mod id 8). No
+3. Expected: one `after` rule referencing DMF
+   (`logicalFileName: "Darktide Mod Framework"`). No
    user interaction was required to add it.
 
 B. Deploy writes mods.lst with DMF first.
@@ -234,7 +248,7 @@ regenerated on deploy and profile change (Step 5), not at launch.
 
 The extension ships the Relay runtime as a directory beside the built
 `index.js` (`relay/`). That directory is gitignored and is bundled into the
-release archive by `scripts/package.ts`. To populate it, run
+release archive by `release/package.ts`. To populate it, run
 `pnpm bundle:relay`, which fetches the latest Mod Relay release and extracts
 it verbatim into `repo-root/relay/`. `pnpm package` then includes the
 `relay/` tree in the archive, and Vortex installs it beside the built
@@ -448,8 +462,9 @@ The script:
 
 1. Runs `pnpm build` first (pass `--no-build` to skip if you already
    built).
-2. Stages `info.json`, `gameart.png`, `dist/index.js` (as `index.js`),
-   and the `relay/` tree in a temp directory.
+2. Stages `assets/info.json` (with the resolved version written in),
+   `assets/gameart.png`, `dist/index.js` (as `index.js`), and the `relay/`
+   tree in a temp directory.
 3. Zips it so the four entries sit at the archive root with no wrapper
    directory (Vortex rejects archives wrapped in a top-level folder).
 4. Reads the zip's central directory to verify the root layout
@@ -457,7 +472,9 @@ The script:
 5. Cleans the staging dir and prints the output path and size.
 
 Default output:
-`<repo>/dist-package/darktide-relay-vortex-extension-<info-version>.zip`.
+`<repo>/dist-package/darktide-relay-vortex-extension-<version>.zip`. Locally
+`<version>` is `0.0.0-dev+<short sha>`; in CI it is the release version injected
+into `assets/info.json`.
 `--out <path>` overrides the output archive path.
 `pnpm package --help` shows the full usage.
 
