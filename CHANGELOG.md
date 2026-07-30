@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/compare/v0.1.4...v0.1.5) (2026-07-30)
+
+
+### Bug Fixes
+
+* **installer:** reference DMF by logical file name in the after rule ([#16](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/issues/16)) ([dc6a060](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/commit/dc6a060147be17a3781c187bc5c7af9589373206))
+
 ## [0.1.4](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/compare/v0.1.3...v0.1.4) (2026-07-28)
 
 
