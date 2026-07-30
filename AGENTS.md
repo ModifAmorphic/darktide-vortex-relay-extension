@@ -135,8 +135,8 @@ as a Relay requirement or a Relay-owned root.
   (the Mod Relay layout: `--mod-path` points at `<deployDir>`, and the
   launcher expects `<deployDir>/mods/` to contain the mod folders and
   `mods.lst`). The bundled Relay runtime is gitignored.
-  `scripts/bundle-relay.ts` fetches the latest Relay release into `relay/`
-  (run `pnpm bundle:relay`), and `scripts/package.ts` assembles the
+  `release/bundle-relay.ts` fetches the latest Relay release into `relay/`
+  (run `pnpm bundle:relay`), and `release/package.ts` assembles the
   distributable archive (run `pnpm package`). The GitHub release workflow
   (release-please config + release.yml on push to main, gated on
   releases_created) runs these in CI to build and upload the archive to
@@ -178,10 +178,6 @@ AGENTS.md
   Agent orientation and repository operating rules.
 LICENSE
   GPL-3.0 project license.
-info.json
-  Vortex extension manifest (name, id, author, version, description).
-gameart.png
-  640x360 Vortex game art (placeholder pending real art).
 package.json
   npm manifest, dev-only dependencies, scripts, engines, packageManager.
 pnpm-lock.yaml
@@ -232,7 +228,7 @@ src/
     call.
   constants.ts
     Game ID, Nexus domain, Steam app ID, required files, mod attribute
-    name, DMF canonical name, DMF Nexus mod id, mod-directory layout
+    name, DMF canonical name, DMF logical file name, mod-directory layout
     subdirectory names, Relay tool id/name and the launcher executable
     (the only Relay file the extension names; Relay's internal runtime
      layout is not enumerated), and the Darktide console-log directory
@@ -315,9 +311,9 @@ src/
       Atomic write helper (writeAtomic): write tmp, fsync, rename, with
       best-effort tmp cleanup on failure. No Vortex imports; only
       `node:fs` and `node:path`.
-scripts/
+release/
   package.json
-    Scopes scripts/ to ES modules so Node 24 type-strips dev .ts files
+    Scopes release/ to ES modules so Node 24 type-strips dev .ts files
     directly (the repo root remains "type": "commonjs" for built output).
   bundle-relay.ts
     Fetches the latest Mod Relay release (pre-release inclusive) from the
@@ -330,10 +326,11 @@ scripts/
     Optional GITHUB_TOKEN env raises the unauthenticated API rate limit.
     Run via `pnpm bundle:relay` (`--out <dir>` overrides the target dir).
     Pure helpers (selectLatestRelease, selectWindowsAsset) are exported
-    for unit testing.
+    for unit testing. Used both locally and by the release workflow.
   package.ts
     Assembles the distributable Vortex extension archive. Stages
-    info.json, gameart.png, dist/index.js (renamed index.js), and the
+    assets/info.json (with the resolved build version written in),
+    assets/gameart.png, dist/index.js (renamed index.js), and the
     relay/ tree in a temp dir, zips it via PowerShell Compress-Archive
     (the `-Path '<stage>/*'` wildcard form places entries at the archive
     root with no wrapper directory), reads the zip's central directory
@@ -341,15 +338,27 @@ scripts/
     layout (info.json, gameart.png, index.js, relay/mod_relay.exe), and
     cleans the staging dir. Gates on dist/index.js and
     relay/mod_relay.exe existing; runs `pnpm build` first unless
-    `--no-build`. Default output is
-    dist-package/darktide-relay-vortex-extension-<info-version>.zip
+    `--no-build`. Versioning: in CI (release workflow) uses the version
+    injected into assets/info.json verbatim; locally stamps
+    `0.0.0-dev+<short sha>` (or `0.0.0-dev` if git is missing) into both the archive
+    name and the embedded info.json, so a local build is obviously not a
+    release. Default output is
+    dist-package/darktide-relay-vortex-extension-<version>.zip
     (`--out <path>` overrides). Run via `pnpm package`. Pure helpers
-    (readInfoVersion, composeArchivePath, assertArchiveRoot) are
-    exported for unit testing.
+    (readInfoVersion, composeArchivePath, composeDevVersion,
+    assertArchiveRoot) are exported for unit testing. Used both locally
+    and by the release workflow.
+  assets/
+    Static extension files package.ts drops verbatim at the archive root:
+    info.json (Vortex extension manifest: name, id, author, version,
+    description) and gameart.png (640x360 Vortex game art, placeholder
+    pending real art). Inputs to package.ts, not build artifacts.
   README.md
-    Operator-facing verification checklist. Run `pnpm package` and install
-    the archive into Vortex, then work through the per-step checks
-    documented there. Grows as implementation steps land.
+    Build/packaging guide and operator-facing verification checklist. Opens
+    with the dual role of these scripts (local dev + release pipeline) and
+    the assets/ description, then the per-step verification checklist. Run
+    `pnpm package` and install the archive into Vortex, then work through
+    the checks documented there. Grows as implementation steps land.
 test/
   paths.test.ts
     Unit tests for the path helpers exercising Windows path composition
@@ -407,7 +416,7 @@ test/
       Unit tests for writeAtomic covering write, replace, tmp cleanup on
       success and on simulated rename failure, write-failure cleanup, and
       UTF-8-without-BOM encoding.
-  scripts/
+  release/
     bundle-relay.test.ts
       Unit tests for selectLatestRelease (newest non-draft by
       published_at, defensive sort not trusting API order, pre-releases
@@ -599,7 +608,7 @@ are not required for the basic integration.
 The extension bundles the latest Relay release at build time (pre-release
 inclusive) and redistributes whatever Relay ships, verbatim. Relay is NOT
 version-pinned: each build of the extension fetches the newest non-draft
-release via `scripts/bundle-relay.ts`. The extension's only Relay contract is
+release via `release/bundle-relay.ts`. The extension's only Relay contract is
 `mod_relay.exe`; it does NOT inspect, enumerate, or verify Relay's internal
 files (no DLL name check, no `mod_loader` Lua list, no legal-file check). Relay
 ships its own complete, legally-compliant runtime (GPL-3.0 `LICENSE` and
@@ -625,10 +634,10 @@ for the toolchain versions and grounding date):
 - `pnpm test` -- run the Vitest unit suite.
 - `pnpm build` -- bundle `src/index.ts` to `dist/index.js` via Rolldown.
 - `pnpm bundle:relay` -- fetch the latest Mod Relay release into `relay/`
-  (`scripts/bundle-relay.ts`). Optional `GITHUB_TOKEN` raises the API rate
+  (`release/bundle-relay.ts`). Optional `GITHUB_TOKEN` raises the API rate
   limit; `--out <dir>` overrides the target directory.
 - `pnpm package` -- assemble the distributable extension archive into
-  `dist-package/` (`scripts/package.ts`). Runs `pnpm build` first unless
+  `dist-package/` (`release/package.ts`). Runs `pnpm build` first unless
   `--no-build`; `--out <path>` overrides the output archive path.
 - `pnpm clean` -- remove `dist/`.
 
@@ -785,7 +794,7 @@ or operations, update as applicable:
 
 - **`AGENTS.md`** -- repository state, tree, commands, contracts, and ops.
 - **`README.md`** -- user-facing status, installation, and links.
-- **`scripts/README.md`** (or component README) -- build, test, package, and
+- **`release/README.md`** (or component README) -- build, test, package, and
   developer workflow.
 - **`docs/architecture/`** -- selected architecture or lifecycle changes.
 - **`docs/reference/`** -- external contract/API/version changes and their

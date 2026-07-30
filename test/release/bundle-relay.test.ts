@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { selectLatestRelease, selectWindowsAsset } from '../../scripts/bundle-relay';
+import { selectLatestRelease, selectWindowsAsset } from '../../release/bundle-relay';
 
 /**
  * Unit tests for the pure release- and asset-selection helpers in
- * scripts/bundle-relay.ts. Fixture shape mirrors the GitHub REST API
+ * release/bundle-relay.ts. Fixture shape mirrors the GitHub REST API
  * releases response: each release has tag_name, published_at, draft,
  * prerelease, and assets[] where each asset has id, name, size, and
  * browser_download_url.

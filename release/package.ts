@@ -11,7 +11,7 @@
  * directory to verify the root layout, and cleans the staging dir.
  *
  * Plain TypeScript run directly by Node 24's native type stripping
- * (`scripts/package.json` declares `"type": "module"`). Zip creation and
+ * (`release/package.json` declares `"type": "module"`). Zip creation and
  * entry listing use Windows PowerShell 5.1's `Compress-Archive` and the
  * .NET `System.IO.Compression.ZipFile` type. The version parse,
  * output-path composition, and root-layout assertion are factored into
@@ -35,6 +35,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const RELAY_EXECUTABLE = 'mod_relay.exe';
 
 const REPO_ROOT = fileURLToPath(new URL('../', import.meta.url));
+const SCRIPT_DIR = fileURLToPath(new URL('.', import.meta.url));
+/** Source location of the static archive inputs (`info.json`, `gameart.png`). */
+const ASSETS_DIR = path.join(SCRIPT_DIR, 'assets');
 const DEFAULT_OUT_DIR = path.join(REPO_ROOT, 'dist-package');
 const ARCHIVE_NAME_PREFIX = 'darktide-relay-vortex-extension-';
 
@@ -79,6 +82,46 @@ export function readInfoVersion(infoJsonText: string): string {
 /** Composes the default output archive path: `<outDir>/<prefix><version>.zip`. Exported for unit testing. */
 export function composeArchivePath(version: string, outDir: string): string {
   return path.join(outDir, `${ARCHIVE_NAME_PREFIX}${version}.zip`);
+}
+
+/**
+ * Local dev build version: `0.0.0-dev+<short sha>`, or `0.0.0-dev` if git is
+ * unavailable. Pure (the sha is injected by the caller) so it is unit-
+ * testable. The sha distinguishes two builds from different commits.
+ *
+ * `0.0.0` is the zero sentinel: it sorts below every release and clearly is
+ * not one, and the `-dev` prerelease plus `+<sha>` build metadata mark the
+ * archive as a local build with provenance. This stamp never reaches a
+ * release; the release pipeline injects the real SemVer via the workflow.
+ * Vortex requires a SemVer-valid extension version to load (a bare
+ * `dev+<sha>` is rejected), which is why the zero core is present.
+ */
+export function composeDevVersion(sha: string | null): string {
+  return sha ? `0.0.0-dev+${sha}` : '0.0.0-dev';
+}
+
+/**
+ * True in CI. GitHub Actions sets `CI=true`. The release workflow injects the
+ * real release version into `info.json` before packaging, so in CI we trust
+ * that value verbatim; locally we stamp a dev version instead.
+ */
+function isCI(): boolean {
+  return process.env.CI === 'true' || process.env.CI === '1';
+}
+
+/** Returns the short HEAD sha, or `null` if git is unavailable or not a repo. */
+function gitShortSha(): string | null {
+  try {
+    const sha = execSync('git rev-parse --short HEAD', {
+      cwd: REPO_ROOT,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf8',
+    });
+    const trimmed = sha.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  } catch {
+    return null;
+  }
 }
 
 /** The files this script guarantees sit at the archive root. */
@@ -142,7 +185,7 @@ function parseArgs(argv: readonly string[]): Options {
 
 function printHelp(): void {
   const lines = [
-    'Usage: node scripts/package.ts [options]',
+    'Usage: node release/package.ts [options]',
     '',
     'Assembles the distributable Vortex extension archive.',
     '',
@@ -151,6 +194,12 @@ function printHelp(): void {
     '  --out <path>   Output archive path (zip).',
     `                  Default: <repo>/dist-package/${ARCHIVE_NAME_PREFIX}<version>.zip`,
     '  -h, --help     Show this help.',
+    '',
+    'Versioning:',
+    '  In CI (the release pipeline) the version is the one injected into',
+    '  release/assets/info.json. Locally the archive and its embedded',
+    '  info.json are stamped `0.0.0-dev+<short sha>` (or `0.0.0-dev` if git is missing)',
+    '  so a local build is obviously not a release.',
     '',
     'Prerequisites:',
     '  - dist/index.js (run `pnpm build`, or drop --no-build to build here).',
@@ -167,11 +216,18 @@ function runBuild(): void {
 }
 
 /**
- * Copies `info.json`, `gameart.png`, `dist/index.js` (as `index.js`),
- * and the `relay/` tree into `stageDir` (the archive root). Throws a
- * {@link UserError} if a source is missing.
+ * Copies `gameart.png`, `dist/index.js` (as `index.js`), and the `relay/`
+ * tree into `stageDir` (the archive root), and writes `info.json` with `version`
+ * set to the resolved build version (so a local dev build reports its dev
+ * version, not the stale source placeholder). Throws a {@link UserError} if a
+ * source is missing.
  */
-function stageExtension(stageDir: string, indexPath: string, relayDir: string): void {
+function stageExtension(
+  stageDir: string,
+  indexPath: string,
+  relayDir: string,
+  version: string,
+): void {
   const copyFile = (src: string, destName: string): void => {
     if (!fs.existsSync(src)) {
       throw new UserError(`Expected source file is missing: "${src}".`);
@@ -183,8 +239,26 @@ function stageExtension(stageDir: string, indexPath: string, relayDir: string): 
     }
   };
 
-  copyFile(path.join(REPO_ROOT, 'info.json'), 'info.json');
-  copyFile(path.join(REPO_ROOT, 'gameart.png'), 'gameart.png');
+  // info.json is written with the resolved version rather than copied verbatim,
+  // so an installed dev build shows its dev version in Vortex.
+  const infoPath = path.join(ASSETS_DIR, 'info.json');
+  if (!fs.existsSync(infoPath)) {
+    throw new UserError(`Expected source file is missing: "${infoPath}".`);
+  }
+  let infoObj: Record<string, unknown>;
+  try {
+    infoObj = JSON.parse(fs.readFileSync(infoPath, 'utf8'));
+  } catch (err) {
+    throw new UserError(`Could not parse "${infoPath}": ${(err as Error).message}.`);
+  }
+  infoObj.version = version;
+  try {
+    fs.writeFileSync(path.join(stageDir, 'info.json'), `${JSON.stringify(infoObj, null, 2)}\n`);
+  } catch (err) {
+    throw new UserError(`Could not stage "info.json": ${(err as Error).message}.`);
+  }
+
+  copyFile(path.join(ASSETS_DIR, 'gameart.png'), 'gameart.png');
   copyFile(indexPath, 'index.js');
 
   try {
@@ -293,8 +367,11 @@ function main(): void {
       );
     }
 
-    const infoText = fs.readFileSync(path.join(REPO_ROOT, 'info.json'), 'utf8');
-    const version = readInfoVersion(infoText);
+    const infoText = fs.readFileSync(path.join(ASSETS_DIR, 'info.json'), 'utf8');
+    const infoVersion = readInfoVersion(infoText);
+    // In CI the release workflow has injected the real version into info.json;
+    // use it verbatim. Locally stamp an obviously-dev version.
+    const version = isCI() ? infoVersion : composeDevVersion(gitShortSha());
 
     const outZip = path.resolve(opts.out ?? composeArchivePath(version, DEFAULT_OUT_DIR));
     fs.mkdirSync(path.dirname(outZip), { recursive: true });
@@ -302,7 +379,7 @@ function main(): void {
     const stageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pkg-stage-'));
     try {
       console.log(`Staging archive contents in ${stageDir}...`);
-      stageExtension(stageDir, indexPath, relayDir);
+      stageExtension(stageDir, indexPath, relayDir, version);
 
       console.log(`Creating archive ${outZip}...`);
       compressArchive(stageDir, outZip);

@@ -9,7 +9,7 @@
  * root.
  *
  * Plain TypeScript run directly by Node 24's native type stripping
- * (`scripts/package.json` declares `"type": "module"`). Zip extraction
+ * (`release/package.json` declares `"type": "module"`). Zip extraction
  * uses Windows PowerShell 5.1's `Expand-Archive`. The release- and
  * asset-selection logic is factored into pure helpers covered by unit
  * tests; the PowerShell and network I/O is integration-level.
@@ -231,7 +231,7 @@ function parseArgs(argv: readonly string[]): Options {
 
 function printHelp(): void {
   const lines = [
-    'Usage: node scripts/bundle-relay.ts [options]',
+    'Usage: node release/bundle-relay.ts [options]',
     '',
     'Fetches the latest Mod Relay release and extracts it into the target directory.',
     '',

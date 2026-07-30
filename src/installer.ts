@@ -1,7 +1,12 @@
 import type { types } from '@nexusmods/vortex-api';
 import { selectors } from '@nexusmods/vortex-api';
 
-import { DMF_CANONICAL_NAME, DMF_NEXUS_MOD_ID, GAME_ID, MOD_ATTRIBUTE_NAME } from './constants';
+import {
+  DMF_CANONICAL_NAME,
+  DMF_LOGICAL_FILE_NAME,
+  GAME_ID,
+  MOD_ATTRIBUTE_NAME,
+} from './constants';
 import * as archive from './util/archive';
 import { isSafeCanonicalName } from './util/names';
 
@@ -53,8 +58,10 @@ function attributeInstruction(key: string, value: string): types.IInstruction {
 /**
  * Builds the `after DMF` rule instruction. `util.sortMods` turns the rule
  * into a DAG edge so the bearing mod deploys after DMF. The reference uses
- * DMF's Nexus mod id with `versionMatch: '*'`, which matches via
- * `testModReference`'s fuzzy-version path regardless of file id.
+ * DMF's logical file name with `versionMatch: '*'`, which both matches DMF
+ * in `testModReference`'s `logicalFileName` branch (fuzzy version) and
+ * resolves to a display name in Vortex's dependency UI. This is the same
+ * reference shape Vortex's own "add dependency" UI produces.
  */
 function afterDmfRuleInstruction(): types.IInstruction {
   return {
@@ -62,10 +69,7 @@ function afterDmfRuleInstruction(): types.IInstruction {
     rule: {
       type: 'after',
       reference: {
-        repo: {
-          repository: 'nexus',
-          modId: DMF_NEXUS_MOD_ID,
-        },
+        logicalFileName: DMF_LOGICAL_FILE_NAME,
         versionMatch: '*',
       },
     },

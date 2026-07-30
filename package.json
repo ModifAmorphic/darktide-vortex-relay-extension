@@ -17,8 +17,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "build": "rolldown -c rolldown.config.ts",
-    "bundle:relay": "node scripts/bundle-relay.ts",
-    "package": "node scripts/package.ts",
+    "bundle:relay": "node release/bundle-relay.ts",
+    "package": "node release/package.ts",
     "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\""
   },
   "devDependencies": {
