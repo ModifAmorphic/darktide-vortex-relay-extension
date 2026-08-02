@@ -429,7 +429,7 @@ The script:
 1. Fetches the releases list from the GitHub API (no auth needed for a
    single run; set `GITHUB_TOKEN` in CI to raise the 60/hr limit to
    5000/hr).
-2. Selects the newest non-draft release (pre-release inclusive) by
+2. Selects the newest non-draft, non-prerelease release by
    `published_at`, then selects the asset matching
    `vX.Y.Z-windows-x64.zip`.
 3. Downloads the zip and extracts it verbatim into `relay/`, replacing

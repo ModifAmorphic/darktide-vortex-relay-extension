@@ -122,7 +122,7 @@ a window reload.
 pnpm bundle:relay
 ```
 
-Fetches the newest non-draft Mod Relay release (pre-release inclusive) from
+Fetches the newest non-draft, non-prerelease Mod Relay release from
 the GitHub releases API, downloads the `-windows-x64.zip` asset, and extracts
 it verbatim into `relay/`. The extension's only Relay contract is
 `mod_relay.exe`; the script verifies that one file is present and does not

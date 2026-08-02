@@ -369,9 +369,9 @@ If the extension archive embeds Relay, preserve those files beside the runtime
 artifacts. Do not reconstruct a partial runtime by copying only the EXE/DLL.
 
 Bundling fixes the Relay runtime at extension build time: each build
-fetches the latest Relay release (pre-release inclusive) and ships it as
-an opaque unit. The extension is NOT version-pinned to a specific Relay
-release. Provenance for diagnostics is available via
+fetches the latest stable Relay release (skipping drafts and pre-releases)
+and ships it as an opaque unit. The extension is NOT version-pinned to a
+specific Relay release. Provenance for diagnostics is available via
 `mod_relay.exe --version`.
 
 ## 12. Responsibilities matrix
