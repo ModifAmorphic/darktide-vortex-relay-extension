@@ -524,7 +524,3 @@ archive to the release. A release ships only when you merge the release
 PR; feature PR merges do not release. Add a `Release-As: X.Y.Z` footer to
 a merge commit only if you want to override the version release-please
 computed.
-
-Releases are marked as pre-release until Mod Relay ships 1.0.0 stable
-(`prerelease: true` in `.release-please-config.json`). Flip that flag off
-when the extension is ready for a stable release.
