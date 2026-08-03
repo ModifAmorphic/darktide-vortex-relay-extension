@@ -39,7 +39,7 @@ need to uninstall first.
 
 ## Launch options
 
-Mod Relay supports optional launch flags (`--lua-logs`, `--skip-splash`, and
+Mod Relay supports optional launch flags (`--log-lua`, `--skip-splash`, and
 forwarded game arguments after `--`). The extension does not add a custom UI
 for these; you set them through Vortex's built-in tool editor, the same way
 you would for any Vortex tool.
@@ -61,7 +61,7 @@ by the extension at launch; leave them as-is.
 
 Relay flags (see the Mod Relay documentation for the full list):
 
-- `--lua-logs`: copy Lua `print` output into `relay.log` (a tee; Darktide's
+- `--log-lua`: copy Lua `print` output into `relay.log` (a tee; Darktide's
   console log is unaffected).
 - `--skip-splash`: skip Darktide's intro splash state.
 - `-- <args>`: forward everything after the `--` separator to Darktide
@@ -72,7 +72,7 @@ For example, to enable Lua logging, skip the splash, and forward
 `--lua-heap-mb-size 2048` to Darktide, the Command Line field should read:
 
 ```text
---game-binary {RELAY_GAME_BINARY} --mod-path {RELAY_MOD_PATH} --lua-logs --skip-splash -- --lua-heap-mb-size 2048
+--game-binary {RELAY_GAME_BINARY} --mod-path {RELAY_MOD_PATH} --log-lua --skip-splash -- --lua-heap-mb-size 2048
 ```
 
 ## Documentation

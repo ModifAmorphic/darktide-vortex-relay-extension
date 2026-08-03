@@ -293,7 +293,7 @@ src/
     getModPaths) and are NOT registered here. Pure helpers
     (resolveConsoleLogsDir, dirExistsSync) and the ACTION_GROUP
     constant are exported for unit testing.
-    Launch options (Relay flags such as `--lua-logs` and `--skip-splash`,
+    Launch options (Relay flags such as `--log-lua` and `--skip-splash`,
     plus forwarded game args after `--`) are configured through Vortex's
     built-in tool editor (Tools -> Mod Relay -> Edit -> Command Line),
     not a custom action or settings panel; the extension meets Vortex at
