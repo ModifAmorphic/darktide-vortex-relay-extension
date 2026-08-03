@@ -418,7 +418,7 @@ change between profile switches.
 
 **Relay flags and forwarded Darktide arguments.** The extension ships only
 the two required parameters (`--game-binary`, `--mod-path`) as static
-defaults. Users add optional Relay flags (`--lua-logs`, `--skip-splash`) and
+defaults. Users add optional Relay flags (`--log-lua`, `--skip-splash`) and
 forwarded game arguments (after Relay's `--` separator) through Vortex's
 built-in tool editor (Tools page -> Mod Relay -> Edit -> Command Line). The
 extension deliberately does not add a custom UI for this; it meets Vortex at
@@ -521,7 +521,7 @@ uses the scoped package. Own runtime dependencies bundle into `index.js`;
 Vortex/Electron/Node-provided modules and the Vortex API remain external.
 
 Relay is not version-pinned: each build of the extension fetches the newest
-non-draft release (pre-release inclusive). Relay ships its own complete,
+non-draft, non-prerelease release. Relay ships its own complete,
 legally-compliant runtime (GPL-3.0 `LICENSE` and `THIRD_PARTY_NOTICES.md`
 travel inside the release zip), and the extension redistributes whatever Relay
 ships verbatim; the only file the extension gates on is `mod_relay.exe`.

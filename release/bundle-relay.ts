@@ -2,8 +2,8 @@
 /**
  * Fetches the latest Mod Relay runtime release and extracts it verbatim
  * into the repo-root `relay/` directory. Relay is not version-pinned;
- * the script picks the newest non-draft release (pre-release inclusive)
- * and the asset matching `/^v\d+\.\d+\.\d+-windows-x64\.zip$/`, then
+ * the script picks the newest non-draft, non-prerelease release and
+ * the asset matching `/^v\d+\.\d+\.\d+-windows-x64\.zip$/`, then
  * extracts the flat zip layout directly into the target directory. The
  * only post-extract gate is that `mod_relay.exe` exists at the target
  * root.
@@ -74,15 +74,17 @@ class UserError extends Error {
 }
 
 /**
- * Selects the newest non-draft release from a GitHub releases API
- * response. Exported for unit testing.
+ * Selects the newest non-draft, non-prerelease release from a GitHub
+ * releases API response. Exported for unit testing.
  *
  * Defensively sorts by `published_at` descending rather than trusting
  * the API's documented newest-first order, so a future API change
- * cannot silently downgrade the bundle. Pre-releases are candidates
- * (every Relay release so far is a pre-release); only drafts are
- * skipped. Throws a {@link UserError} when the response is not an
- * array or contains no usable release.
+ * cannot silently downgrade the bundle. Relay 1.0.0+ ships only true
+ * (non-prerelease) releases, so pre-releases are skipped along with
+ * drafts; this also keeps release selection consistent with the
+ * Windows-asset pattern, which matches stable version tags only.
+ * Throws a {@link UserError} when the response is not an array or
+ * contains no usable release.
  */
 export function selectLatestRelease(releases: unknown): SelectedRelease {
   if (!Array.isArray(releases)) {
@@ -98,7 +100,9 @@ export function selectLatestRelease(releases: unknown): SelectedRelease {
     }
   }
   if (candidates.length === 0) {
-    throw new UserError('GitHub API returned no usable (non-draft) releases for Mod Relay.');
+    throw new UserError(
+      'GitHub API returned no usable (non-draft, non-prerelease) releases for Mod Relay.',
+    );
   }
   // Stable sort by publishedAt descending. Ties preserve API order.
   candidates.sort((a, b) =>
@@ -106,14 +110,17 @@ export function selectLatestRelease(releases: unknown): SelectedRelease {
   );
   const newest = candidates[0];
   if (newest === undefined) {
-    throw new UserError('GitHub API returned no usable (non-draft) releases for Mod Relay.');
+    throw new UserError(
+      'GitHub API returned no usable (non-draft, non-prerelease) releases for Mod Relay.',
+    );
   }
   return newest;
 }
 
 /**
  * Coerces a raw release object into a {@link SelectedRelease}, or
- * returns null when the shape is wrong or the release is a draft.
+ * returns null when the shape is wrong or the release is a draft or
+ * pre-release.
  */
 function coerceRelease(release: unknown): SelectedRelease | null {
   if (typeof release !== 'object' || release === null || Array.isArray(release)) {
@@ -121,11 +128,12 @@ function coerceRelease(release: unknown): SelectedRelease | null {
   }
   const obj = release as {
     draft?: unknown;
+    prerelease?: unknown;
     tag_name?: unknown;
     published_at?: unknown;
     assets?: unknown;
   };
-  if (obj.draft === true) {
+  if (obj.draft === true || obj.prerelease === true) {
     return null;
   }
   const tagName = obj.tag_name;

@@ -293,7 +293,7 @@ src/
     getModPaths) and are NOT registered here. Pure helpers
     (resolveConsoleLogsDir, dirExistsSync) and the ACTION_GROUP
     constant are exported for unit testing.
-    Launch options (Relay flags such as `--lua-logs` and `--skip-splash`,
+    Launch options (Relay flags such as `--log-lua` and `--skip-splash`,
     plus forwarded game args after `--`) are configured through Vortex's
     built-in tool editor (Tools -> Mod Relay -> Edit -> Command Line),
     not a custom action or settings panel; the extension meets Vortex at
@@ -316,10 +316,11 @@ release/
     Scopes release/ to ES modules so Node 24 type-strips dev .ts files
     directly (the repo root remains "type": "commonjs" for built output).
   bundle-relay.ts
-    Fetches the latest Mod Relay release (pre-release inclusive) from the
-    GitHub releases API, downloads the `-windows-x64.zip` asset, and
-    extracts it verbatim into the repo-root relay/ directory. Defensively
-    sorts releases by published_at and selects the newest non-draft one;
+    Fetches the latest stable Mod Relay release (skipping drafts and
+    pre-releases) from the GitHub releases API, downloads the
+    `-windows-x64.zip` asset, and extracts it verbatim into the
+    repo-root relay/ directory. Defensively sorts releases by
+    published_at and selects the newest non-draft, non-prerelease one;
     selects the asset matching /^v\d+\.\d+\.\d+-windows-x64\.zip$/.
     Verifies the one contract file (mod_relay.exe) at the target root
     after extraction; no internal-file enumeration or legal-file check.
@@ -420,7 +421,7 @@ test/
     bundle-relay.test.ts
       Unit tests for selectLatestRelease (newest non-draft by
       published_at, defensive sort not trusting API order, pre-releases
-      included, draft skipping, malformed-release filtering, asset
+      skipped, draft skipping, malformed-release filtering, asset
       coercion, published_at tie-breaking) and selectWindowsAsset
       (pattern match across versions, no-match and multi-match errors
       naming available assets, rejection of malformed names).
@@ -605,16 +606,17 @@ supports `--version`, log flags, Steam app-ID override, and a bare `--`
 separator for forwarding later tokens to Darktide. Forwarded game arguments
 are not required for the basic integration.
 
-The extension bundles the latest Relay release at build time (pre-release
-inclusive) and redistributes whatever Relay ships, verbatim. Relay is NOT
-version-pinned: each build of the extension fetches the newest non-draft
-release via `release/bundle-relay.ts`. The extension's only Relay contract is
-`mod_relay.exe`; it does NOT inspect, enumerate, or verify Relay's internal
-files (no DLL name check, no `mod_loader` Lua list, no legal-file check). Relay
-ships its own complete, legally-compliant runtime (GPL-3.0 `LICENSE` and
-`THIRD_PARTY_NOTICES.md` travel inside the release zip), and the extension
-preserves that bundle as a tested unit rather than copying only the EXE/DLL or
-reconstructing a partial bundle.
+The extension bundles the latest Relay release at build time (skipping
+drafts and pre-releases) and redistributes whatever Relay ships, verbatim.
+Relay is NOT version-pinned: each build of the extension fetches the newest
+non-draft, non-prerelease release via `release/bundle-relay.ts`.
+The extension's only Relay contract is `mod_relay.exe`; it does NOT inspect,
+enumerate, or verify Relay's internal files (no DLL name check, no
+`mod_loader` Lua list, no legal-file check). Relay ships its own complete,
+legally-compliant runtime (GPL-3.0 `LICENSE` and `THIRD_PARTY_NOTICES.md`
+travel inside the release zip), and the extension preserves that bundle as
+a tested unit rather than copying only the EXE/DLL or reconstructing a
+partial bundle.
 
 Relay exits after injecting and resuming Darktide. Vortex process tracking after
 that handoff requires live validation.

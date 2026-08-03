@@ -122,7 +122,7 @@ a window reload.
 pnpm bundle:relay
 ```
 
-Fetches the newest non-draft Mod Relay release (pre-release inclusive) from
+Fetches the newest non-draft, non-prerelease Mod Relay release from
 the GitHub releases API, downloads the `-windows-x64.zip` asset, and extracts
 it verbatim into `relay/`. The extension's only Relay contract is
 `mod_relay.exe`; the script verifies that one file is present and does not
@@ -171,10 +171,6 @@ The config pins the first release to `0.1.0` via `initial-version` in the
 `.` package, so the first release is `0.1.0` and subsequent releases stay
 pre-1.0 until deliberately bumped. Remove `initial-version` after the first
 release is cut (it is inert by then, but cleaning it avoids confusion).
-
-Releases are marked as pre-release until Mod Relay ships 1.0.0 stable
-(`prerelease: true` in `.release-please-config.json`). Flip that flag off
-when the extension is ready for a stable release.
 
 Repository conventions (Conventional Commits, branch + PR flow, no unreviewed
 merges to `main`) are in [`../AGENTS.md`](../AGENTS.md).

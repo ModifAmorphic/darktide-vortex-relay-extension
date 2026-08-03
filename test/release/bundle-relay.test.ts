@@ -85,14 +85,15 @@ describe('selectLatestRelease', () => {
     expect(result.tagName).toBe('v0.5.1');
   });
 
-  it('includes pre-releases (Relay ships pre-releases)', () => {
+  it('skips pre-releases (Relay 1.0.0+ ships true releases only)', () => {
     const releases: ReleaseFixture[] = [
       makeRelease('v0.5.1-beta', '2026-07-26T00:00:00Z', [], { prerelease: true }),
       makeRelease('v0.5.0', '2026-06-01T00:00:00Z', []),
     ];
     const result = selectLatestRelease(releases);
-    // The pre-release is newer by date, so it must be selected.
-    expect(result.tagName).toBe('v0.5.1-beta');
+    // The pre-release is newer by date but must be skipped, so the
+    // stable v0.5.0 is selected instead.
+    expect(result.tagName).toBe('v0.5.0');
   });
 
   it('handles a single release', () => {
@@ -116,6 +117,14 @@ describe('selectLatestRelease', () => {
     const releases: ReleaseFixture[] = [
       makeRelease('v0.6.0', '2026-12-01T00:00:00Z', [], { draft: true }),
       makeRelease('v0.5.0', '2026-06-01T00:00:00Z', [], { draft: true }),
+    ];
+    expect(() => selectLatestRelease(releases)).toThrow(/no usable/);
+  });
+
+  it('throws when every release is a pre-release', () => {
+    const releases: ReleaseFixture[] = [
+      makeRelease('v1.1.0-rc1', '2026-12-01T00:00:00Z', [], { prerelease: true }),
+      makeRelease('v1.0.1-rc1', '2026-06-01T00:00:00Z', [], { prerelease: true }),
     ];
     expect(() => selectLatestRelease(releases)).toThrow(/no usable/);
   });
