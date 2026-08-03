@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/compare/v0.1.5...v0.1.6) (2026-08-03)
+
+
+### Bug Fixes
+
+* **bundle-relay:** skip prereleases when selecting the Relay release ([#18](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/issues/18)) ([fd99374](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/commit/fd9937477f077cde001ee0e4eac55ef0e342dcf9))
+
 ## [0.1.5](https://github.com/ModifAmorphic/darktide-vortex-relay-extension/compare/v0.1.4...v0.1.5) (2026-07-30)
 
 
